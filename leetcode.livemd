@@ -1,0 +1,811 @@
+# Leetcode
+
+## Alternate characters from two strings
+
+https://leetcode.com/problems/merge-strings-alternately/
+
+category: array / string
+
+level: easy
+
+```elixir
+defmodule Merger do
+  defp alternately([], word2, _, result), do: Enum.reverse(result) ++ word2
+
+  defp alternately(word1, [], _, result), do: Enum.reverse(result) ++ word1
+
+  defp alternately([pick | word1rest], word2, 1, result),
+    do: alternately(word1rest, word2, 2, [pick | result])
+
+  defp alternately(word1, [pick | word2rest], 2, result),
+    do: alternately(word1, word2rest, 1, [pick | result])
+
+  def merge_alternately(word1, word2) when is_binary(word1) and is_binary(word2),
+    do: alternately(to_charlist(word1), to_charlist(word2), 1, []) |> to_string
+end
+
+"apbqcr" = Merger.merge_alternately("abc", "pqr")
+"apbqrs" = Merger.merge_alternately("ab", "pqrs")
+"apbqcd" = Merger.merge_alternately("abcd", "pq")
+```
+
+## Greatest common divider of strings
+
+https://leetcode.com/problems/greatest-common-divisor-of-strings/description/
+
+category: array / string
+
+level: easy
+
+```elixir
+defmodule Divider do
+  def gcd_of_strings(str1, str2) when is_binary(str1) and is_binary(str2) do
+    maxlength = min(String.length(str1), String.length(str2))
+
+    Enum.reduce_while(maxlength..1//-1, "", fn len, acc ->
+      # are both str1 and str2 length divisable by len?
+      if rem(String.length(str1), len) == 0 and rem(String.length(str2), len) == 0 do
+        substr = String.slice(str1, 0..(len - 1)//1)
+        # String.duplicate might not be memory efficient for long strings
+        if String.starts_with?(str2, substr) and
+             String.duplicate(substr, div(String.length(str2), len)) == str2 and
+             String.duplicate(substr, div(String.length(str1), len)) == str1,
+           do: {:halt, substr},
+           else: {:cont, acc}
+      else
+        {:cont, acc}
+      end
+    end)
+  end
+end
+
+"ABC" =
+  Divider.gcd_of_strings(
+    "ABCABC",
+    "ABC"
+  )
+
+"AB" =
+  Divider.gcd_of_strings(
+    "ABABAB",
+    "ABAB"
+  )
+
+"TAUXX" =
+  Divider.gcd_of_strings(
+    "TAUXXTAUXXTAUXXTAUXXTAUXX",
+    "TAUXXTAUXXTAUXXTAUXXTAUXXTAUXXTAUXXTAUXXTAUXX"
+  )
+```
+
+## Helper: NumberPriorityQueue
+
+A general purpose module named NumberPriorityQueue for some of the Leetcode assignments.
+
+```elixir
+# Priority queue. Like heap_min/heap_max but implemented with list as queue.
+# Init with new(), use push to add numbers, use pop_min to pop off the smallest number,
+# and pop_max for the maximum number.
+defmodule NumberPriorityQueue do
+  defstruct min_value: nil,
+            max_value: nil,
+            queue: [],
+            # maintain queue_length to avoid list traversals
+            queue_length: 0
+
+  def new(), do: %NumberPriorityQueue{}
+  def length(%NumberPriorityQueue{} = state), do: state.queue_length
+  def empty?(%NumberPriorityQueue{} = state), do: state.queue_length == 0
+
+  def push(num, %NumberPriorityQueue{} = state) when is_number(num) do
+    max_value =
+      if state.queue_length > 0, do: max(state.max_value, num), else: num
+
+    %NumberPriorityQueue{
+      min_value: min(state.min_value, num),
+      max_value: max_value,
+      queue: [num | state.queue],
+      queue_length: state.queue_length + 1
+    }
+  end
+
+  defp min_max_and_length(num, {nil, nil, l}), do: {num, num, l + 1}
+  defp min_max_and_length(num, {mi, ma, l}), do: {min(mi, num), max(ma, num), l + 1}
+
+  def remove(nil, %NumberPriorityQueue{} = state), do: {nil, state}
+
+  def remove(num, %NumberPriorityQueue{} = state) do
+    new_list = List.delete(state.queue, num)
+    {new_min, new_max, new_length} = Enum.reduce(new_list, {nil, nil, 0}, &min_max_and_length/2)
+
+    {num,
+     %NumberPriorityQueue{
+       min_value: new_min,
+       max_value: new_max,
+       queue: new_list,
+       queue_length: new_length
+     }}
+  end
+
+  def pop_min(%NumberPriorityQueue{} = state), do: remove(state.min_value, state)
+  def pop_max(%NumberPriorityQueue{} = state), do: remove(state.max_value, state)
+  def peek_min(%NumberPriorityQueue{} = state), do: state.min_value
+  def peek_max(%NumberPriorityQueue{} = state), do: state.max_value
+end
+
+:ok
+```
+
+## Kth largest element
+
+https://leetcode.com/problems/kth-largest-element-in-an-array/description
+
+category: heap / priority queue
+
+level: medium
+
+```elixir
+# Keep the K largest numbers in the queue.
+# The minimal value in the queue is the K-th largest element.
+alias NumberPriorityQueue, as: PQ
+
+defmodule KthLargestElement do
+  def solve(number_list, k) do
+    {start_list, rest} = Enum.split(number_list, k)
+    initial_pq = Enum.reduce(start_list, PQ.new(), &PQ.push/2)
+
+    Enum.reduce(rest, initial_pq, fn val, pq ->
+      if val > PQ.peek_min(pq) do
+        {_num, new_pq} = PQ.pop_min(pq)
+        PQ.push(val, new_pq)
+      else
+        pq
+      end
+    end)
+    |> PQ.peek_min()
+  end
+end
+
+5 = KthLargestElement.solve([3, 2, 1, 5, 6, 4], 2)
+4 = KthLargestElement.solve([3, 2, 3, 1, 2, 4, 5, 5, 6], 4)
+```
+
+## Find median from data stream
+
+https://leetcode.com/problems/find-median-from-data-stream/description/
+
+category: heap / priority queue
+
+level: hard
+
+```elixir
+# This median finder accepts all integer/float numbers, including negative numbers.
+# It is not optimized for a particular range of integers.
+# Assumed is that the median must be available after each change; 
+# most of the work is done in the insert_num function.
+# 
+# This solution has O(n) time complexity and O(n) space complexity.
+# All the numbers of the data stream are kept in memory, and this is needed for 
+# solution to work if the numbers are not limited to a certain range and
+# the stream size is not known in advance.
+#
+# Two lists are maintained; biggest and smallest numbers. The list sizes are kept
+# in balance, so the median can be calculated by looking at the maximum of the 
+# smallest numbers and the minimum of the biggest numbers.
+#
+# The first number will be put in the list of smallest numbers.
+
+alias NumberPriorityQueue, as: PQ
+
+# This structure holds all the state for the inserted numbers.
+
+defmodule MedianState do
+  defstruct smallest_numbers: NumberPriorityQueue.new(),
+            biggest_numbers: NumberPriorityQueue.new()
+end
+
+defmodule MedianFinder do
+
+  def new(), do: %MedianState{}
+  
+  # The function keeps two queue lengths in balance (same size ± 1);
+  # to do that it can move one number from one queue to another.
+  # The two queue lengths should differ at most 2 when this function is called.
+  defp rebalance(state) do
+    cond do
+      PQ.length(state.biggest_numbers) > PQ.length(state.smallest_numbers) + 1 ->
+        {min_of_biggest_numbers, new_pq} = PQ.pop_min(state.biggest_numbers)
+
+        %MedianState{
+          biggest_numbers: new_pq,
+          smallest_numbers: PQ.push(min_of_biggest_numbers, state.smallest_numbers)
+        }
+
+      PQ.length(state.smallest_numbers) > PQ.length(state.biggest_numbers) + 1 ->
+        {max_of_smallest_numbers, new_pq} = PQ.pop_max(state.smallest_numbers)
+
+        %MedianState{
+          smallest_numbers: new_pq,
+          biggest_numbers: PQ.push(max_of_smallest_numbers, state.biggest_numbers)
+        }
+
+      true ->
+        state
+    end
+  end
+
+  def insert_num(%MedianState{} = state, num) do
+    cond do
+      num < PQ.peek_max(state.smallest_numbers) ->
+        rebalance(%{
+          state
+          | smallest_numbers: PQ.push(num, state.smallest_numbers)
+        })
+
+      num > PQ.peek_min(state.biggest_numbers) ->
+        rebalance(%{
+          state
+          | biggest_numbers: PQ.push(num, state.biggest_numbers)
+        })
+
+      PQ.length(state.biggest_numbers) >= PQ.length(state.smallest_numbers) ->
+        %{
+          state
+          | smallest_numbers: PQ.push(num, state.smallest_numbers)
+        }
+
+      true ->
+        %{
+          state
+          | biggest_numbers: PQ.push(num, state.biggest_numbers)
+        }
+    end
+  end
+
+  def get_median(%MedianState{} = state) do
+    cond do
+      PQ.empty?(state.smallest_numbers) ->
+        nil
+
+      PQ.length(state.biggest_numbers) == PQ.length(state.smallest_numbers) ->
+        (PQ.peek_max(state.smallest_numbers) + PQ.peek_min(state.biggest_numbers)) / 2
+
+      PQ.length(state.biggest_numbers) > PQ.length(state.smallest_numbers) ->
+        PQ.peek_min(state.biggest_numbers) * 1.0
+
+      true ->
+        PQ.peek_max(state.smallest_numbers) * 1.0
+    end
+  end
+end
+
+:ok
+```
+
+```elixir
+# test the MedianFinder
+
+numbers = [6, 10, 2, 6, 5, 0, 6, 3, 1, 0, 0]
+
+medians = [6.0, 8.0, 6.0, 6.0, 6.0, 5.5, 6.0, 5.5, 5.0, 4.0, 3.0]
+
+testdata = Enum.zip(numbers, medians)
+
+initial_state = MedianFinder.new()
+
+Enum.reduce(testdata, initial_state, fn {num, median}, state ->
+  new_state = MedianFinder.insert_num(state, num)
+  ^median = MedianFinder.get_median(new_state)
+  new_state
+end)
+```
+
+## Container with most water
+
+https://leetcode.com/problems/container-with-most-water/description/
+
+category: two pointers
+
+level: medium
+
+```elixir
+defmodule WaterContainer do
+  def solve(_heights, leftpos, rightpos, max, solution) when leftpos >= rightpos do
+    {max, solution}
+  end
+
+  def solve(heights, leftpos, rightpos, max, solution) do
+    leftheight = Enum.at(heights, leftpos)
+    rightheight = Enum.at(heights, rightpos)
+    area = (rightpos - leftpos) * min(leftheight, rightheight)
+
+    solution =
+      if area > max do
+        {leftpos, rightpos}
+      else
+        solution
+      end
+
+    area_max = max(max, area)
+
+    if leftheight < rightheight do
+      solve(heights, leftpos + 1, rightpos, area_max, solution)
+    else
+      solve(heights, leftpos, rightpos - 1, area_max, solution)
+    end
+  end
+
+  def max_area(heights) do
+    {max, solution} = solve(heights, 0, length(heights) - 1, 0, nil)
+    IO.inspect(solution, label: "Left and right position")
+    max
+  end
+end
+
+heights = [1, 8, 6, 2, 5, 4, 8, 3, 7]
+
+WaterContainer.max_area(heights)
+```
+
+## Max number of vowels in substr
+
+https://leetcode.com/problems/maximum-number-of-vowels-in-a-substring-of-given-length/description/
+
+category: sliding window
+
+level: medium
+
+```elixir
+count_vowels = fn text ->
+  Enum.filter(text, fn ch -> Enum.member?(~c"aeiou", ch) end) |> Enum.count()
+end
+
+k = 7
+input = "weallloveyou"
+4 = Enum.chunk_every(to_charlist(input), k, 1, :discard) |> Enum.map(count_vowels) |> Enum.max()
+```
+
+## Helper: Bisect left/right
+
+Some Python solutions use Bisect. The module below is used as replacement.
+
+```elixir
+# Instead of bisect; it does not use binary search, but output is like bisect_left/right.
+# Input must be a flatten sorted list.
+# Search position in sorted list for a new value to be added in the sorted list.
+# left_insert_pos: prefers left side for equal numbers
+# right_insert_pos: prefers right side for equal numbers
+defmodule SortPos do
+  defp left([], _search, pos), do: pos
+  defp left([key | _remain], search, pos) when key >= search, do: pos
+  defp left([_key | remain], search, pos), do: left(remain, search, pos + 1)
+
+  def left_insert_pos(nums, search), do: left(nums, search, 0)
+
+  defp right([], _search, pos), do: pos
+  defp right([key | _remain], search, pos) when key > search, do: pos
+  defp right([_key | remain], search, pos), do: right(remain, search, pos + 1)
+
+  def right_insert_pos(nums, search), do: right(nums, search, 0)
+end
+
+SortPos.right_insert_pos([1, 2, 2, 4], 2)
+```
+
+## Longest increasing subsequence
+
+https://leetcode.com/problems/longest-increasing-subsequence/description/
+
+level: medium
+
+category: dynamic programming
+
+needed for some other leetcode problems
+
+<!-- livebook:{"break_markdown":true} -->
+
+https://blog.finxter.com/5-best-ways-to-find-the-length-of-the-longest-increasing-subsequence-in-python/
+
+<!-- livebook:{"break_markdown":true} -->
+
+Solution 1 - using recursion
+
+```elixir
+# Recursion without memoization.
+# memoization could be done with key: {prev_num, cursor_pos} and passing and returning it in lis_util.
+# Only solution lenght is printed, not the numbers, but this could also be added. 
+
+defmodule LIS do
+  def lis_util(_nums, _prev, [], _pos), do: 0
+
+  def lis_util(nums, prev_num, [cursor_num | remaining], cursor_pos) do
+    taken =
+      if cursor_num <= prev_num,
+        do: 0,
+        else: 1 + lis_util(nums, cursor_num, remaining, cursor_pos + 1)
+
+    not_taken = lis_util(nums, prev_num, remaining, cursor_pos + 1)
+    max(taken, not_taken)
+  end
+
+  def length_of_lis(nums), do: lis_util(nums, -99999, nums, 0)
+end
+
+5 = LIS.length_of_lis([10, 9, 2, 101, 5, 105, 3, 103, 7, 109, 13, 111, 12])
+```
+
+Solution 2 - using a sorted list
+
+from stackoverflow, translated from Python to Elixir.
+
+https://stackoverflow.com/questions/3992697/longest-increasing-subsequence
+
+```elixir
+#
+# Multiple solutions are possible, but this algorithm finds at most one.
+#
+defmodule LongestIncreasingSubsequence do
+  defp update_predecessor_map(predecessor, pos, _end_elements) when pos < 0, do: predecessor
+
+  defp update_predecessor_map(predecessor, pos, end_elements) do
+    Map.put(predecessor, pos, Enum.at(end_elements, pos))
+  end
+
+  # param is called nums, but it works for anything that can be ordered.
+  defp solve(nums) do
+    # end_elements is a sorted list of increasing elements.
+    # predecessor is a map containing the longest sequence until now (keeps 1 solution at most).
+    Enum.reduce(nums, {%{}, []}, fn num, {predecessor, end_elements} ->
+      # instead of inserting the new num, the position j will be used for replacing.
+      # end_elements will always be kept sorted.
+      j = SortPos.left_insert_pos(end_elements, num)
+
+      new_end_elements =
+        if j == length(end_elements) do
+          end_elements ++ [num]
+        else
+          List.replace_at(end_elements, j, num)
+        end
+
+      {update_predecessor_map(predecessor, j - 1, end_elements), new_end_elements}
+    end)
+  end
+
+  def length_of_lis(nums) do
+    {_predecessor, end_elements} = solve(nums)
+
+    length(end_elements)
+  end
+
+  def lis(nums) do
+    {predecessor, end_elements} = solve(nums)
+
+    solution_length = length(end_elements)
+
+    # add the last element to the solution
+    sequence_map = update_predecessor_map(predecessor, solution_length - 1, end_elements)
+
+    # convert map to list, with the values in the increasing order
+    Enum.map(0..(solution_length - 1)//1, fn i -> sequence_map[i] end)
+  end
+end
+
+["aa", "bb", "cc"] = LongestIncreasingSubsequence.lis(["aa", "dd", "bb", "cc"])
+
+[2, 3, 7, 14, 16] =
+  LongestIncreasingSubsequence.lis([9, 2, 101, 5, 105, 3, 103, 7, 109, 111, 15, 14, 16])
+```
+
+## Russian doll envelopes
+
+https://leetcode.com/problems/russian-doll-envelopes/description/
+
+categorie: apply Longest Increasing Subsequence
+
+level: hard
+
+```elixir
+alias NumberPriorityQueue, as: PQ
+
+envelopes = [[5, 4], [6, 4], [6, 5], [6, 7], [2, 3]]
+
+# envelopes = [[2, 3],[2,4],[2,5]]
+# first sort on width and descending on heigth
+sorted_list =
+  Enum.sort(envelopes, fn [w1, h1], [w2, h2] -> if w1 == w2, do: h1 > h2, else: w1 < w2 end)
+
+heights = Enum.map(sorted_list, fn [_width, height] -> height end)
+
+lis = LongestIncreasingSubsequence.lis(heights)
+
+# print envelopes
+Enum.reduce(sorted_list, lis, fn [width, height], lis ->
+  case lis do
+    [search_height | other_lis] when height == search_height ->
+      IO.inspect([width, height], label: "Envelope")
+      other_lis
+
+    acc ->
+      acc
+  end
+end)
+
+length(lis)
+```
+
+## Helper: divisor
+
+Used to calculate greatest common divider and lowest common multiple.
+
+```elixir
+# first some utilities
+defmodule Divisor do
+  def divisors(num) when num > 0 and is_integer(num) do
+    until = trunc(:math.sqrt(num))
+
+    Enum.reduce(1..until//1, [], fn test_divisor, divisor_list ->
+      if rem(num, test_divisor) == 0 do
+        other = div(num, test_divisor)
+
+        if other == test_divisor do
+          [test_divisor | divisor_list]
+        else
+          [test_divisor, other | divisor_list]
+        end
+      else
+        divisor_list
+      end
+    end)
+  end
+
+  def common_divisor([]), do: []
+
+  def common_divisor([1 | _]), do: [1]
+
+  # it's more efficient if you put the smallest number first in the list of nums
+  def common_divisors(nums) do
+    [a_num | other_nums] = nums
+
+    # search divisors of all nums. Result is sorted big to small
+    Divisor.divisors(a_num)
+    |> Enum.sort(:desc)
+    |> Enum.filter(fn test_divisor ->
+      Enum.all?(other_nums, fn num -> rem(num, test_divisor) == 0 end)
+    end)
+  end
+
+  def greatest_common_divisor(sorted_nums) do
+    Divisor.common_divisors(sorted_nums) |> List.first()
+  end
+
+  def lowest_common_multiple([num]), do: num
+  def lowest_common_multiple([num, num]), do: num
+
+  def lowest_common_multiple([num1, num2]) when num1 > num2,
+    do: lowest_common_multiple([num2, num1])
+
+  def lowest_common_multiple([num1, num2]) when num1 < num2 do
+    div(num1 * num2, greatest_common_divisor([num1, num2]))
+  end
+
+  def lowest_common_multiple([num1, num2, num3 | other_nums]) do
+    lowest_of_num1_and_num2 = lowest_common_multiple([num1, num2])
+    lowest_of_other_nums = lowest_common_multiple([num3 | other_nums])
+    lowest_common_multiple([lowest_of_num1_and_num2, lowest_of_other_nums])
+  end
+end
+
+:ok
+```
+
+## Coin change
+
+https://leetcode.com/problems/coin-change/description/
+
+category: dynamic programming
+
+level: medium
+
+This code is longer than most solutions, but it has several optimalisations.
+Most solutions on leetcode.com are limited to the code in make_dp_map.
+
+```elixir
+defmodule CoinChange do
+  defp greedy_search_but_still_optimal(coins_sorted_desc, sum) when sum >= 0 do
+    # The biggest coin determines the theoretic minimum of coins that are needed,
+    # so every combination that match that, are the optimal solution.
+    # This greedy aproach does not look further than the combination of 2 different coins.
+    Enum.reduce_while(coins_sorted_desc, {nil, nil, sum}, fn coin,
+                                                             {_, minimum_of_bigger_coin, _} ->
+      remainder = rem(sum, coin)
+      multiple = div(sum, coin)
+
+      if remainder == 0 and multiple <= minimum_of_bigger_coin do
+        {:halt, {coin, multiple, nil}}
+      else
+        # because of the remainder at least one more coin is needed
+        if multiple + 1 > minimum_of_bigger_coin do
+          # this might be not be the optimal solution.
+          # coins are sorted from big to small, at some point there is no use to search further.
+          search_further = if multiple > minimum_of_bigger_coin, do: :halt, else: :cont
+          {search_further, {nil, minimum_of_bigger_coin, nil}}
+        else
+          # simple heuristic, assuming the remainder is 1 coin
+          if Enum.member?(coins_sorted_desc, remainder) do
+            {:halt, {coin, multiple, remainder}}
+          else
+            {:cont, {nil, multiple + 1, nil}}
+          end
+        end
+      end
+    end)
+  end
+
+  defp greedy_find_theoritic_minimum(sorted_coins, amount) do
+    # look if we can fill the rest to the amount with one of the biggests coins.
+    # If so, we have found an optimal solution and there is no need 
+    # to calculate all the in-between values.
+    coins_sorted_desc = Enum.reverse(sorted_coins)
+
+    {fill_the_rest_coin, fill_times, remainder_coin} =
+      greedy_search_but_still_optimal(coins_sorted_desc, amount)
+
+    if is_nil(fill_the_rest_coin) do
+      # return theoritic minimum
+      {fill_times, nil}
+    else
+      # success
+      if is_nil(remainder_coin) do
+        {fill_times, %{fill_the_rest_coin => fill_times}}
+      else
+        {fill_times + 1, %{remainder_coin => 1, fill_the_rest_coin => fill_times}}
+      end
+    end
+  end
+
+  defp dp_increase_and_keep_the_best(dp_coin_acc, val, coin, calculated_for_value_minus_coin) do
+    {coins_sofar, solution_sofar} = calculated_for_value_minus_coin
+    current_best = dp_coin_acc[val]
+
+    case current_best do
+      nil ->
+        Map.put(dp_coin_acc, val, {coins_sofar + 1, [coin | solution_sofar]})
+
+      {current_best_minimum, _} ->
+        # less coins is better
+        if coins_sofar + 1 < current_best_minimum do
+          Map.put(dp_coin_acc, val, {coins_sofar + 1, [coin | solution_sofar]})
+        else
+          dp_coin_acc
+        end
+    end
+  end
+
+  defp calc_new_dp_for_value(coins_sorted_desc, dp_acc, val) do
+    Enum.reduce(coins_sorted_desc, dp_acc, fn coin, dp_coin_acc ->
+      calculated_for_value_minus_coin = dp_acc[val - coin]
+
+      if is_nil(calculated_for_value_minus_coin) do
+        dp_coin_acc
+      else
+        dp_increase_and_keep_the_best(dp_coin_acc, val, coin, calculated_for_value_minus_coin)
+      end
+    end)
+  end
+
+  defp make_dp_map(sorted_coins, amount, step_size) do
+    smallest_coin = List.first(sorted_coins)
+    coins_sorted_desc = Enum.reverse(sorted_coins)
+
+    Enum.reduce(smallest_coin..amount//step_size, %{0 => {0, []}}, fn val, dp_acc ->
+      calc_new_dp_for_value(coins_sorted_desc, dp_acc, val)
+    end)
+  end
+
+  defp change_sorted_coins([], _), do: {-1, %{}}
+
+  defp change_sorted_coins(coins, amount) do
+    sorted_coins =
+      Enum.filter(coins, fn coin -> is_integer(coin) and coin <= amount and coin > 0 end)
+      |> Enum.sort()
+
+    common_divisor = Divisor.greatest_common_divisor(sorted_coins)
+    IO.inspect(common_divisor, label: "Greatest common divisor")
+
+    # test if it is even possible to make the amount with the given coins
+    if rem(amount, common_divisor) == 0 do
+      lcm = Divisor.lowest_common_multiple(sorted_coins)
+      IO.inspect(lcm, label: "Lowest common multiple")
+      remainder_amount = min(rem(amount, lcm) + lcm, amount)
+      biggest_coin = List.last(sorted_coins)
+      biggest_coin_extra = max(div(amount, lcm) - 1, 0) * div(lcm, biggest_coin)
+
+      {theoretic_minimum, greedy_findings} =
+        greedy_find_theoritic_minimum(sorted_coins, remainder_amount)
+
+      IO.inspect(theoretic_minimum + biggest_coin_extra, label: "At least needed")
+
+      {coin_count_subtotal, coin_frequency_subtotal} =
+        if is_nil(greedy_findings) do
+          IO.inspect(remainder_amount, label: "Calculate amounts until")
+          dp = make_dp_map(sorted_coins, remainder_amount, common_divisor)
+          IO.inspect(Enum.count(dp) - 1, label: "Calculated amounts")
+
+          case dp[remainder_amount] do
+            nil -> {-1, %{}}
+            {len, coin_list} -> {len, Enum.frequencies(coin_list)}
+          end
+        else
+          {theoretic_minimum, greedy_findings}
+        end
+
+      if biggest_coin_extra > 0 and coin_count_subtotal >= 0 do
+        coin_frequencies =
+          Map.put(
+            coin_frequency_subtotal,
+            biggest_coin,
+            Map.get(coin_frequency_subtotal, biggest_coin, 0) + biggest_coin_extra
+          )
+
+        {coin_count_subtotal + biggest_coin_extra, coin_frequencies}
+      else
+        {coin_count_subtotal, coin_frequency_subtotal}
+      end
+    else
+      {-1, %{}}
+    end
+  end
+
+  def change([], _), do: {-1, %{}}
+
+  def change(coins, amount) when is_integer(amount) and amount >= 0 do
+    sorted_coins =
+      Enum.filter(coins, fn coin -> is_integer(coin) and coin <= amount and coin > 0 end)
+      |> Enum.sort()
+
+    change_sorted_coins(sorted_coins, amount)
+  end
+
+  def coin_change(coins, amount) do
+    {len, _coins} = change(coins, amount)
+    len
+  end
+end
+
+:ok
+```
+
+```elixir
+# test CoinChange
+{len, coins} = CoinChange.change([200, 300, 700, 900], 214300)
+IO.inspect(coins, label: "Solution with coin frequencies")
+len
+```
+
+## Maximum subarray
+
+https://leetcode.com/problems/maximum-subarray/
+
+categorie: Kadane's Algorithm
+
+level: medium
+
+To be done
+
+## Cherry pickup
+
+https://leetcode.com/problems/cherry-pickup/description/
+
+category: dynamic programming
+
+level: hard
+
+To be done
+
+## Top 75 / 150 Leetcode questions
+
+https://www.designgurus.io/blind75
+
+https://leetcode.com/studyplan/leetcode-75/
+
+https://leetcode.com/studyplan/top-interview-150/
