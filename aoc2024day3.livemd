@@ -1,0 +1,47 @@
+# Advent of code 2024 - Day 3
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/3
+
+```elixir
+textarea = Kino.Input.textarea("Give input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input = Kino.Input.read(textarea)
+
+matches = Regex.scan(~r/mul\((\d{1,3}),(\d{1,3})\)/, input)
+
+Enum.map(matches, fn match -> String.to_integer(Enum.at(match, 1)) * String.to_integer(Enum.at(match, 2)) end)
+|> Enum.sum
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# split on do() and don't()
+# prefix with do() in the first row
+
+["" | rest] = String.split("do()" <> input, ~r/do(n't)?\(\)/, include_captures: true)
+
+matches2 =
+  Enum.chunk_every(rest, 2)
+  |> Enum.filter(fn [cmd, _match] -> cmd == "do()" end)
+  |> Enum.flat_map(fn [_, match] -> Regex.scan(~r/mul\((\d{1,3}),(\d{1,3})\)/, match) end)
+
+Enum.map(matches2, fn match ->
+  String.to_integer(Enum.at(match, 1)) * String.to_integer(Enum.at(match, 2))
+end)
+|> Enum.sum()
+```

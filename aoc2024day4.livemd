@@ -1,0 +1,149 @@
+# Advent of code 2024 - day 4
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"},
+  {:vega_lite, "~> 0.1.11"},
+  {:kino_vega_lite, "~> 0.1.13"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/4
+
+```elixir
+textarea = Kino.Input.textarea("Let it be XMAS:", monospace: true)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  Kino.Input.read(textarea)
+  |> String.split("\n", trim: true)
+
+grid =
+  for {line, row} <- Enum.with_index(lines),
+      {number, col} <- Enum.with_index(String.to_charlist(line)),
+      into: %{} do
+    {{col, row}, number}
+  end
+
+defmodule Searcher do
+  def words(grid, x, y) do
+    left = [grid[{x, y}], grid[{x - 1, y}], grid[{x - 2, y}], grid[{x - 3, y}]]
+    right = [grid[{x, y}], grid[{x + 1, y}], grid[{x + 2, y}], grid[{x + 3, y}]]
+    up = [grid[{x, y}], grid[{x, y - 1}], grid[{x, y - 2}], grid[{x, y - 3}]]
+    down = [grid[{x, y}], grid[{x, y + 1}], grid[{x, y + 2}], grid[{x, y + 3}]]
+    upleft = [grid[{x, y}], grid[{x - 1, y - 1}], grid[{x - 2, y - 2}], grid[{x - 3, y - 3}]]
+    upright = [grid[{x, y}], grid[{x + 1, y - 1}], grid[{x + 2, y - 2}], grid[{x + 3, y - 3}]]
+    downleft = [grid[{x, y}], grid[{x - 1, y + 1}], grid[{x - 2, y + 2}], grid[{x - 3, y + 3}]]
+    downright = [grid[{x, y}], grid[{x + 1, y + 1}], grid[{x + 2, y + 2}], grid[{x + 3, y + 3}]]
+
+    [left, right, up, down, upleft, upright, downleft, downright]
+  end
+
+  def count_grid_as_text(count_grid, width, height) do
+    for y2 <- 0..(height - 1), x2 <- 0..(width - 1), into: "" do
+      if x2 == 0 do
+        "\n"
+      else
+        ""
+      end <>
+        (count_grid[{x2, y2}] || ".")
+    end
+  end
+end
+
+# width = max()
+width = String.length(Enum.at(lines, 0))
+height = length(lines)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{count, count_grid} =
+  for y <- 0..(height - 1), x <- 0..(width - 1), reduce: {0, %{}} do
+    acc ->
+      # IO.inspect y
+      if grid[{x, y}] == ?X do
+        found_count =
+          Searcher.words(grid, x, y)
+          |> Enum.filter(fn text -> text == ~c"XMAS" end)
+          |> Enum.count()
+
+        {count, count_grid} = acc
+
+        {count + found_count, Map.put(count_grid, {x, y}, Integer.to_string(found_count))}
+      else
+        acc
+      end
+  end
+
+# IO.puts(Searcher.count_grid_as_text(count_grid, width, height))
+
+count
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule WordSearcher do
+  def crosswords(grid, x, y) do
+    upleft_to_downright = [grid[{x - 1, y - 1}], grid[{x, y}], grid[{x + 1, y + 1}]]
+    upright_to_downleft = [grid[{x + 1, y - 1}], grid[{x, y}], grid[{x - 1, y + 1}]]
+
+    [upleft_to_downright, upright_to_downleft]
+  end
+end
+
+{count, count_grid} =
+  for y <- 0..(height - 1), x <- 0..(width - 1), reduce: {0, %{}} do
+    acc ->
+      if grid[{x, y}] == ?A do
+        found_count =
+          WordSearcher.crosswords(grid, x, y)
+          |> Enum.filter(fn text -> text == ~c"MAS" or text == ~c"SAM" end)
+          |> Enum.count()
+
+        {count, count_grid} = acc
+
+        add_cross = if found_count == 2, do: 1, else: 0
+
+        {count + add_cross, Map.put(count_grid, {x, y}, Integer.to_string(found_count))}
+      else
+        acc
+      end
+  end
+
+# IO.puts(Searcher.count_grid_as_text(count_grid, width, height))
+
+count
+```
+
+## Visualisation
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+alias VegaLite, as: Vl
+
+Vl.new(height: 500, width: 500)
+|> Vl.data_from_values(
+  Enum.map(count_grid, fn {{x, y}, h} ->
+    %{"x" => x, "y" => -y, "h" => h}
+  end)
+)
+|> Vl.mark(:circle, opacity: 0.8)
+|> Vl.encode_field(:x, "x", type: :quantitative, axis: false)
+|> Vl.encode_field(:y, "y", type: :quantitative, axis: false)
+|> Vl.encode_field(:color, "h",
+  type: :quantitative,
+  scale: [domain: [0, 2], range: ["green", "yellow", "red"]]
+)
+|> Kino.VegaLite.new()
+```

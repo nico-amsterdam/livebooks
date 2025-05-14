@@ -1,0 +1,87 @@
+# Advent of code 2024 - day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/5
+
+```elixir
+textarea = Kino.Input.textarea("Give input:")
+```
+
+```elixir
+input = Kino.Input.read(textarea)
+
+[rules, updates] = String.split(input, "\n\n", parts: 2)
+
+rule_set =
+  String.split(rules, "\n", trim: true)
+  |> Enum.map(fn rule ->
+    String.split(rule, "|") |> Enum.map(&String.to_integer/1) |> List.to_tuple()
+  end)
+  |> Enum.into(MapSet.new())
+
+update_list =
+  String.split(updates, "\n", trim: true)
+  |> Enum.map(fn update ->
+    String.split(update, ",") |> Enum.map(&String.to_integer/1)
+  end)
+
+:ok
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule PageOrderValidator do
+  def wrong_order(rule_set, page_numbers) do
+    for idx <- 0..(length(page_numbers) - 2),
+        a_page = Enum.at(page_numbers, idx),
+        compare_idx <- (idx + 1)..(length(page_numbers) - 1),
+        later_page = Enum.at(page_numbers, compare_idx),
+        reduce: false do
+      acc -> acc || MapSet.member?(rule_set, {later_page, a_page})
+    end
+  end
+end
+
+update_list
+|> Enum.filter(fn page_numbers -> !PageOrderValidator.wrong_order(rule_set, page_numbers) end)
+|> Enum.map(fn page_numbers ->
+  Enum.at(page_numbers, Integer.floor_div(length(page_numbers) - 1, 2))
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+update_list
+|> Enum.filter(fn page_numbers -> PageOrderValidator.wrong_order(rule_set, page_numbers) end)
+|> Enum.map(fn page_numbers ->
+  Enum.sort(page_numbers, fn left_page, right_page ->
+    MapSet.member?(rule_set, {left_page, right_page})
+  end)
+end)
+|> Enum.filter(fn page_numbers ->
+  if PageOrderValidator.wrong_order(rule_set, page_numbers) do
+    # still wrong, print these
+    IO.inspect(page_numbers, charlists: :as_lists)
+    false
+  else
+    true
+  end
+end)
+# |> IO.inspect(charlists: :as_lists)
+|> Enum.map(fn page_numbers ->
+  Enum.at(page_numbers, Integer.floor_div(length(page_numbers) - 1, 2))
+end)
+|> Enum.sum()
+```

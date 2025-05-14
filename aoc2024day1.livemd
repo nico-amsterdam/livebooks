@@ -1,0 +1,54 @@
+# Advent of code 2024 day 1
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/1
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.split(&1))
+
+group1_location_ids =
+  Enum.map(lines, fn [first | _] -> String.to_integer(first) end) |> Enum.sort()
+
+length(group1_location_ids)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+group2_location_ids =
+  Enum.map(lines, fn [_, second] -> String.to_integer(second) end) |> Enum.sort()
+
+Enum.zip([group1_location_ids, group2_location_ids])
+|> Enum.map(fn {first, second} -> abs(first - second) end)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+group2_location_ids_frequency =
+  Enum.map(lines, fn [_, second] -> String.to_integer(second) end)
+  |> Enum.frequencies()
+
+Enum.reduce(group1_location_ids, 0, fn location_id, acc ->
+  acc + (group2_location_ids_frequency[location_id] || 0) * location_id
+end)
+```

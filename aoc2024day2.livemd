@@ -1,0 +1,75 @@
+# Advent of code 2024 - day 2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/2
+
+```elixir
+textarea = Kino.Input.textarea("Enter the input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input = Kino.Input.read(textarea)
+
+reports =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn report -> String.split(report) |> Enum.map(&String.to_integer/1) end)
+
+length(reports)
+```
+
+```elixir
+defmodule TestReport do
+  def is_safe?(report) do
+    deltas =
+      Enum.chunk_every(report, 2, 1, :discard)
+      |> Enum.map(fn from_to -> Enum.at(from_to, 1) - Enum.at(from_to, 0) end)
+
+    minimum = Enum.min(deltas)
+    maximum = Enum.max(deltas)
+    abs_minimum = min(abs(minimum), abs(maximum))
+    abs_maximum = max(abs(minimum), abs(maximum))
+    same_sign = (minimum >= 0 and maximum >= 0) or (minimum < 0 and maximum < 0)
+
+    abs(abs_minimum) >= 1 and abs(abs_maximum) <= 3 and same_sign
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Enum.map(reports, &TestReport.is_safe?/1)
+|> Enum.filter(& &1)
+|> Enum.count()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Enum.map(reports, fn report ->
+  is_safe = TestReport.is_safe?(report)
+
+  Enum.reduce_while(1..length(report), is_safe, fn pos, acc ->
+    if acc do
+      {:halt, acc}
+    else
+      corrected_report = List.delete_at(report, pos - 1)
+      {:cont, TestReport.is_safe?(corrected_report)}
+    end
+  end)
+end)
+|> Enum.filter(& &1)
+|> Enum.count()
+```
