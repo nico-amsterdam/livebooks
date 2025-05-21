@@ -200,8 +200,8 @@ alias NumberPriorityQueue, as: PQ
 # This structure holds all the state for the inserted numbers.
 
 defmodule MedianState do
-  defstruct smallest_numbers: NumberPriorityQueue.new(),
-            biggest_numbers: NumberPriorityQueue.new()
+  defstruct smallest_numbers: PQ.new(),
+            biggest_numbers: PQ.new()
 end
 
 defmodule MedianFinder do
@@ -410,10 +410,12 @@ https://blog.finxter.com/5-best-ways-to-find-the-length-of-the-longest-increasin
 
 Solution 1 - using recursion
 
+Suboptimal solution but easier to understand and to adjust.
+
 ```elixir
 # Recursion without memoization.
 # memoization could be done with key: {prev_num, cursor_pos} and passing and returning it in lis_util.
-# Only solution lenght is printed, not the numbers, but this could also be added. 
+# Only solution length is printed, not the numbers, but this could also be added. 
 
 defmodule LIS do
   def lis_util(_nums, _prev, [], _pos), do: 0
@@ -607,7 +609,7 @@ category: dynamic programming
 level: medium
 
 This code is longer than most solutions, but it has several optimalisations.
-Most solutions on leetcode.com are limited to the code in make_dp_map.
+Most solutions on leetcode.com are limited to the code in the make_dp_map function below.
 
 ```elixir
 defmodule CoinChange do
@@ -790,7 +792,30 @@ categorie: Kadane's Algorithm
 
 level: medium
 
-To be done
+```elixir
+defmodule Kadane do
+  def max_sub_array([first_num | tail_nums]) do
+    init_acc = {first_num, [first_num], first_num, [first_num]}
+
+    {_, _, found_max, found_seq} =
+      Enum.reduce(tail_nums, init_acc, fn num, {local_max, local_seq, global_max, global_seq} ->
+        new_local_max = max(num, local_max + num)
+        new_local_seq = if new_local_max == num, do: [num], else: [num | local_seq]
+        new_global_max = max(new_local_max, global_max)
+        new_global_seq = if new_global_max == new_local_max, do: new_local_seq, else: global_seq
+        {new_local_max, new_local_seq, new_global_max, new_global_seq}
+      end)
+
+    IO.inspect(Enum.reverse(found_seq), label: "Sequence")
+    IO.inspect(found_max, label: "with max")
+    found_max
+  end
+end
+
+6 = Kadane.max_sub_array([-2, 1, -3, 4, -1, 2, 1, -5, 4])
+1 = Kadane.max_sub_array([1])
+23 = Kadane.max_sub_array([5, 4, -1, 7, 8])
+```
 
 ## Cherry pickup
 
@@ -800,7 +825,126 @@ category: dynamic programming
 
 level: hard
 
-To be done
+```elixir
+defmodule Grid do
+  def listgrid_2_xymap(grid) when is_list(grid) do
+    for {row, y} <- Enum.with_index(grid),
+        is_list(row),
+        {val, x} <- Enum.with_index(row) do
+      {{x, y}, val}
+    end
+    |> Enum.into(%{})
+  end
+end
+
+# Solve the two paths at once, so we will know if a cherry is in both paths or not.
+# Instead of a reverse path, both paths start in 0,0 and end in the right bottom corner.
+# Since both paths are explored in the same pace and you cannot go back (up or left),
+# One coördinate (x2) can be deduced from the others (x1,y1,y2).
+# At each step the cherries are counted at a greater distance from point 0,0
+# Accumulator contains the results sofar keyed by the x1,y1,y2 triplet.
+defmodule CherryPickup do
+  def count_cherries(grid, x1, y1, x2, y2) do
+    # a thorn or outside the grid is about the same
+    cherry_path1 = grid[{x1, y1}] || -1
+    cherry_path2 = grid[{x2, y2}] || -1
+
+    cond do
+      cherry_path1 == -1 or cherry_path2 == -1 -> -1
+      x1 == x2 and y1 == y2 -> cherry_path1
+      true -> cherry_path1 + cherry_path2
+    end
+  end
+
+  def update_acc_with_cherry_count(path_combination_acc, grid, prev, x1, y1, x2, y2)
+      when y2 > y1 do
+    # make sure y1 is equal or bigger than y2
+    # IO.inspect({x1, y1, x2, y2}, label: "Crossing paths")
+
+    path_combination_acc
+    |> CherryPickup.update_acc_with_cherry_count(grid, prev, x2, y2, x1, y1)
+  end
+
+  def update_acc_with_cherry_count(path_combination_acc, grid, prev, x1, y1, x2, y2) do
+    key = {x1, y1, y2}
+    {prev_cherries, p1, p2} = prev
+
+    max_sofar =
+      case path_combination_acc[key] do
+        nil -> nil
+        {max_now, _, _} -> max_now
+      end
+
+    cherry_count = CherryPickup.count_cherries(grid, x1, y1, x2, y2)
+
+    cond do
+      cherry_count == -1 ->
+        path_combination_acc
+
+      is_nil(max_sofar) or cherry_count + prev_cherries > max_sofar ->
+        Map.put(
+          path_combination_acc,
+          key,
+          {cherry_count + prev_cherries, [{x1, y1} | p1], [{x2, y2} | p2]}
+        )
+
+      true ->
+        path_combination_acc
+    end
+  end
+
+  # thorn in the upper left position rules out any solution
+  def most_cherries([[-1 | _t1] | _t2]), do: {0, [], []}
+
+  def most_cherries(grid_list) when is_list(grid_list) do
+    grid = Grid.listgrid_2_xymap(grid_list)
+    max_y = length(grid_list) - 1
+    [first_row | _] = grid_list
+    max_x = length(first_row) - 1
+
+    steps = max_x + max_y
+    # number of cherries, path 1 & path 2
+    cherry_at_startpos = {grid[{0, 0}], [{0, 0}], [{0, 0}]}
+
+    bottom_right =
+      Enum.reduce(1..steps//1, %{{0, 0, 0} => cherry_at_startpos}, fn _step, step_acc ->
+        Enum.reduce(step_acc, %{}, fn {{x1, y1, y2}, prev}, path_combination_acc ->
+          x2 = x1 + y1 - y2
+
+          # calculate all combinations (down and right move) for both paths
+          path_combination_acc
+          |> CherryPickup.update_acc_with_cherry_count(grid, prev, x1, y1 + 1, x2, y2 + 1)
+          |> CherryPickup.update_acc_with_cherry_count(grid, prev, x1, y1 + 1, x2 + 1, y2)
+          |> CherryPickup.update_acc_with_cherry_count(grid, prev, x1 + 1, y1, x2, y2 + 1)
+          |> CherryPickup.update_acc_with_cherry_count(grid, prev, x1 + 1, y1, x2 + 1, y2)
+        end)
+      end)
+
+    {cherries, path1, path2} = Map.values(bottom_right) |> Enum.at(0) || {0, [], []}
+    IO.inspect(cherries, label: "Cherries")
+
+    if cherries > 0 do
+      IO.inspect(Enum.reverse(path1), label: "Path       ")
+      IO.inspect(path2, label: "Return path")
+    end
+
+    # Return just the number
+    cherries || 0
+  end
+end
+
+:ok
+```
+
+```elixir
+# tests
+5 = CherryPickup.most_cherries([[0, 1, -1], [1, 0, -1], [1, 1, 1]])
+
+0 = CherryPickup.most_cherries([[1,1,-1],[1,-1,1],[-1,1,1]])
+
+4 = CherryPickup.most_cherries([[0, 1, -1], [1, 1, 1]])
+
+```
 
 ## Top 75 / 150 Leetcode questions
 
