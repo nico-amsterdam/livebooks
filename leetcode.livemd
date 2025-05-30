@@ -285,8 +285,10 @@ end
 ```elixir
 # test the MedianFinder
 
+# input
 numbers = [6, 10, 2, 6, 5, 0, 6, 3, 1, 0, 0]
 
+# expected output
 medians = [6.0, 8.0, 6.0, 6.0, 6.0, 5.5, 6.0, 5.5, 5.0, 4.0, 3.0]
 
 testdata = Enum.zip(numbers, medians)
@@ -817,6 +819,33 @@ end
 23 = Kadane.max_sub_array([5, 4, -1, 7, 8])
 ```
 
+## Helper: grid conversion
+
+Convert a list with lists, representing rows and colums and the cell value to a map with the x,y coördinates as key.
+
+```elixir
+defmodule Grid do
+  def listgrid_2_xymap(grid, offset \\ 0) when is_list(grid) do
+    for {row, y} <- Enum.with_index(grid, offset),
+        is_list(row),
+        {val, x} <- Enum.with_index(row, offset) do
+      {{x, y}, val}
+    end
+    |> Enum.into(%{})
+  end
+
+  def xymap_2_listgrid(%{} = grid, %Range{} = x_range, %Range{} = y_range) do
+    for y <- y_range do
+      for x <- x_range do
+        grid[{x, y}]
+      end
+    end
+  end
+end
+
+:ok
+```
+
 ## Cherry pickup
 
 https://leetcode.com/problems/cherry-pickup/description/
@@ -826,17 +855,6 @@ category: dynamic programming
 level: hard
 
 ```elixir
-defmodule Grid do
-  def listgrid_2_xymap(grid) when is_list(grid) do
-    for {row, y} <- Enum.with_index(grid),
-        is_list(row),
-        {val, x} <- Enum.with_index(row) do
-      {{x, y}, val}
-    end
-    |> Enum.into(%{})
-  end
-end
-
 # Solve the two paths at once, so we will know if a cherry is in both paths or not.
 # Instead of a reverse path, both paths start in 0,0 and end in the right bottom corner.
 # Since both paths are explored in the same pace and you cannot go back (up or left),
@@ -944,6 +962,370 @@ end
 
 4 = CherryPickup.most_cherries([[0, 1, -1], [1, 1, 1]])
 
+```
+
+```elixir
+regions_per_side = 3
+
+for idx1 <- 1..9//1 do
+    # combinations of 1, 4, 7
+    regionRow = regions_per_side * div(idx1 - 1, regions_per_side) + 1;
+    regionCol = regions_per_side * rem(idx1 - 1, regions_per_side) + 1;
+  IO.inspect {regionCol,  regionRow}
+end
+
+x = 2..10
+x.first
+
+z = nil
+
+z && {z, 3}
+```
+
+## Sudoku
+
+https://leetcode.com/problems/sudoku-solver/description/
+
+category: backtracking
+
+level: hard
+
+```elixir
+#
+# Sudoku resolver for various sizes (like 4x4, 6x6, 9x9, 12x12, 16x16) till 36x36.
+# Uses backtracking, but decides first in which order it is likely less work.
+# In each iteration it picks the column/row/region with the most known values.
+# Normally it is fast, unless there is no valid solution.
+# 
+# Many other solution techniques could be explored: https://sudopedia.org/wiki/Solving_Technique
+# 
+defmodule Sudoku do
+  # General features of a Sudoku of a particular size
+  defmodule Features do
+    # defaults are for a 9x9 Sudoku
+    defstruct cell_range: 0..8//1,
+              value_range: 1..9//1,
+              regions_in_topside: 3,
+              region_width: 3,
+              region_height: 3
+
+    defp calc_region_with_and_height(%Range{} = cell_range, regions_in_topside) do
+      width_and_height = cell_range.last + 1 - cell_range.first
+      region_width = div(width_and_height, regions_in_topside)
+      region_height = div(width_and_height, region_width)
+      {region_width, region_height}
+    end
+
+    def new() do
+      %Features{}
+    end
+
+    def new(columns, regions_in_topside) do
+      # positions. zero-based index    
+      cell_range = 0..(columns - 1)//1
+      # for bigger than 9x9 sudoku's like 16x16: A=10 .. G=16, grid should contain 0-9 and A..G
+      value_range = 1..columns//1
+      {region_width, region_height} = calc_region_with_and_height(cell_range, regions_in_topside)
+
+      %Features{
+        cell_range: cell_range,
+        value_range: value_range,
+        regions_in_topside: regions_in_topside,
+        region_width: region_width,
+        region_height: region_height
+      }
+    end
+
+    # end Features
+  end
+
+  defp count_value_in_col_row_region(%{} = xy_map, search_value, %Features{} = feat) do
+    {column_counts, row_counts, region_counts} =
+      for idx1 <- feat.cell_range, reduce: {[], [], []} do
+        {column_list, row_list, region_list} ->
+          # regionRow/regionCol are combinations of 0, 3, 6 in the range 0..8 with 3 sides
+          # 0, 4, 8 in range 0..11
+          region_start_row = feat.region_height * div(idx1, feat.regions_in_topside)
+          region_start_col = feat.region_width * rem(idx1, feat.regions_in_topside)
+
+          {column_counts, row_counts, region_counts} =
+            for idx2 <- feat.cell_range, reduce: {0, 0, 0} do
+              {col, row, reg} ->
+                col_new = if xy_map[{idx1, idx2}] == search_value, do: col + 1, else: col
+                row_new = if xy_map[{idx2, idx1}] == search_value, do: row + 1, else: row
+
+                reg_x = region_start_col + rem(idx2, feat.region_width)
+                reg_y = region_start_row + div(idx2, feat.region_width)
+                reg_new = if xy_map[{reg_x, reg_y}] == search_value, do: reg + 1, else: reg
+
+                {col_new, row_new, reg_new}
+            end
+
+          {[column_counts | column_list], [row_counts | row_list], [region_counts | region_list]}
+      end
+
+    {Enum.reverse(column_counts), Enum.reverse(row_counts), Enum.reverse(region_counts)}
+  end
+
+  defp find_value(_xy_map, _search_value, {nil, nil, nil}, _feat), do: nil
+
+  defp find_value(xy_map, search_value, {column, _row, _region}, %Features{} = feat)
+       when column != nil do
+    y = Enum.find_index(feat.cell_range, fn row -> xy_map[{column, row}] == search_value end)
+    y && {column, y}
+  end
+
+  defp find_value(xy_map, search_value, {_column, row, _region}, %Features{} = feat)
+       when row != nil do
+    x = Enum.find_index(feat.cell_range, fn column -> xy_map[{column, row}] == search_value end)
+    x && {x, row}
+  end
+
+  defp find_value(xy_map, search_value, {_column, _row, region}, %Features{} = feat)
+       when region != nil do
+    region_start_row = feat.region_height * div(region, feat.regions_in_topside)
+    region_start_col = feat.region_width * rem(region, feat.regions_in_topside)
+
+    Enum.reduce_while(feat.cell_range, nil, fn idx, _acc ->
+      reg_x = region_start_col + rem(idx, feat.region_width)
+      reg_y = region_start_row + div(idx, feat.region_width)
+      point = {reg_x, reg_y}
+
+      if xy_map[point] == search_value do
+        {:halt, point}
+      else
+        {:cont, nil}
+      end
+    end)
+  end
+
+  defp calc_region({x, y}, %Features{} = feat) do
+    div(y, feat.region_height) * feat.regions_in_topside + div(x, feat.region_width)
+  end
+
+  defp decrease_counts(
+         {x, y} = point,
+         {column_counts, row_counts, region_counts},
+         %Features{} = feat
+       ) do
+    region = calc_region(point, feat)
+    column_count = Enum.at(column_counts, x)
+    row_count = Enum.at(row_counts, y)
+    region_count = Enum.at(region_counts, region)
+    new_column_counts = List.replace_at(column_counts, x, column_count - 1)
+    new_row_counts = List.replace_at(row_counts, y, row_count - 1)
+    new_region_counts = List.replace_at(region_counts, region, region_count - 1)
+    {new_column_counts, new_row_counts, new_region_counts}
+  end
+
+  defp find_candidate(
+         xy_map,
+         {column_counts, row_counts, region_counts},
+         %Features{} = feat
+       ) do
+    solve_minimum =
+      Enum.reduce(column_counts ++ row_counts ++ region_counts, 99, fn val, acc ->
+        if val > 0 && val < acc, do: val, else: acc
+      end)
+
+    search_fun = fn val -> val == solve_minimum end
+    column = Enum.find_index(column_counts, search_fun)
+    row = Enum.find_index(row_counts, search_fun)
+    region = Enum.find_index(region_counts, search_fun)
+    find_value(xy_map, ".", {column, row, region}, feat)
+  end
+
+  defp is_valid_number(xy_map, {x, y}, val, %Features{} = feat) do
+    column = x
+    row = y
+    region = calc_region({x, y}, feat)
+
+    find_value(xy_map, val, {column, nil, nil}, feat) == nil &&
+      find_value(xy_map, val, {nil, row, nil}, feat) == nil &&
+      find_value(xy_map, val, {nil, nil, region}, feat) == nil
+  end
+
+  defp int_to_value(int_val) do
+    Integer.to_string(int_val, 36)
+  end
+
+  defp solve(xy_map, [], _feat), do: xy_map
+
+  defp solve(xy_map, [point | points], %Features{} = feat) do
+    # progress indicator
+    IO.write(".")
+
+    Enum.reduce_while(feat.value_range, nil, fn int_val, _acc ->
+      val = int_to_value(int_val)
+
+      if is_valid_number(xy_map, point, val, feat) do
+        new_xy_map = %{xy_map | point => val}
+        solved = solve(new_xy_map, points, feat)
+
+        if solved == nil do
+          # didn't work out, try next number
+          {:cont, nil}
+        else
+          # found a solution
+          {:halt, solved}
+        end
+      else
+        # invalid number for this point, try next number
+        {:cont, nil}
+      end
+    end)
+  end
+
+  defp determine_order(xy_map, counts, points, %Features{} = feat) do
+    candidate =
+      find_candidate(xy_map, counts, feat)
+
+    if candidate == nil do
+      # ready; no more points available
+      Enum.reverse(points)
+    else
+      new_xy_map = %{xy_map | candidate => "X"}
+
+      new_counts =
+        decrease_counts(candidate, counts, feat)
+
+      determine_order(new_xy_map, new_counts, [candidate | points], feat)
+    end
+  end
+
+  defp start_solve(xy_map, %Features{} = feat) do
+    counts = count_value_in_col_row_region(xy_map, ".", feat)
+
+    # determine the order of the points to resolve the Sudoku
+    points = determine_order(xy_map, counts, [], feat)
+
+    solve(xy_map, points, feat)
+  end
+
+  # regions_in_topside is normally 3. 
+  # A 16x16 sudoku has 4 regions in the topside.
+  # A 4x4 or 6x6 sudoku has 2 regions in the topside
+  def find_solution(board, regions_in_topside \\ 3) do
+    rows = length(board)
+    columns = length(List.first(board))
+    true = rows == columns
+    xy_map = Grid.listgrid_2_xymap(board)
+    feat = Features.new(columns, regions_in_topside)
+    solution = start_solve(xy_map, feat)
+    IO.puts("")
+
+    if solution == nil,
+      do: nil,
+      else: Grid.xymap_2_listgrid(solution, feat.cell_range, feat.cell_range)
+  end
+end
+
+:ok
+```
+
+```elixir
+board = [
+  ["5", "3", ".", ".", "7", ".", ".", ".", "."],
+  ["6", ".", ".", "1", "9", "5", ".", ".", "."],
+  [".", "9", "8", ".", ".", ".", ".", "6", "."],
+  ["8", ".", ".", ".", "6", ".", ".", ".", "3"],
+  ["4", ".", ".", "8", ".", "3", ".", ".", "1"],
+  ["7", ".", ".", ".", "2", ".", ".", ".", "6"],
+  [".", "6", ".", ".", ".", ".", "2", "8", "."],
+  [".", ".", ".", "4", "1", "9", ".", ".", "5"],
+  [".", ".", ".", ".", "8", ".", ".", "7", "9"]
+]
+
+expected = [
+  ["5", "3", "4", "6", "7", "8", "9", "1", "2"],
+  ["6", "7", "2", "1", "9", "5", "3", "4", "8"],
+  ["1", "9", "8", "3", "4", "2", "5", "6", "7"],
+  ["8", "5", "9", "7", "6", "1", "4", "2", "3"],
+  ["4", "2", "6", "8", "5", "3", "7", "9", "1"],
+  ["7", "1", "3", "9", "2", "4", "8", "5", "6"],
+  ["9", "6", "1", "5", "3", "7", "2", "8", "4"],
+  ["2", "8", "7", "4", "1", "9", "6", "3", "5"],
+  ["3", "4", "5", "2", "8", "6", "1", "7", "9"]
+]
+
+solution = Sudoku.find_solution(board)
+solution == expected
+
+```
+
+```elixir
+# 12x12 board. Width of each region is 4, height = 3
+board = [
+  ["7", ".", "B", "4", ".", "8", "1", "C", ".", ".", ".", "."],
+  [".", ".", "1", "8", ".", ".", "9", ".", ".", ".", ".", "5"],
+  ["6", "9", "C", ".", "5", "A", "3", "4", "1", "8", "7", "B"],
+  ["3", ".", ".", ".", "8", ".", "7", ".", "4", "A", "B", "1"],
+  ["1", "4", "8", ".", "A", ".", ".", ".", "5", "7", "2", "9"],
+  [".", ".", "5", "7", "4", ".", ".", ".", ".", "C", "3", "8"],
+  ["2", "1", "4", ".", "9", "B", "6", ".", "7", "3", "8", "C"],
+  [".", "B", ".", "A", "3", "5", ".", ".", "9", ".", "6", "."],
+  ["8", "6", ".", "3", "7", "4", "C", ".", ".", "5", ".", "A"],
+  [".", "2", "6", ".", "C", ".", "A", "B", "8", "4", ".", "7"],
+  ["5", ".", "A", ".", "1", "7", "4", "6", ".", "B", ".", "3"],
+  ["4", ".", ".", "B", ".", "9", "5", ".", ".", ".", "C", "6"]
+]
+
+expected = [
+  ["7", "5", "B", "4", "6", "8", "1", "C", "3", "9", "A", "2"],
+  ["A", "3", "1", "8", "B", "2", "9", "7", "C", "6", "4", "5"],
+  ["6", "9", "C", "2", "5", "A", "3", "4", "1", "8", "7", "B"],
+  ["3", "C", "2", "9", "8", "6", "7", "5", "4", "A", "B", "1"],
+  ["1", "4", "8", "6", "A", "C", "B", "3", "5", "7", "2", "9"],
+  ["B", "A", "5", "7", "4", "1", "2", "9", "6", "C", "3", "8"],
+  ["2", "1", "4", "5", "9", "B", "6", "A", "7", "3", "8", "C"],
+  ["C", "B", "7", "A", "3", "5", "8", "1", "9", "2", "6", "4"],
+  ["8", "6", "9", "3", "7", "4", "C", "2", "B", "5", "1", "A"],
+  ["9", "2", "6", "1", "C", "3", "A", "B", "8", "4", "5", "7"],
+  ["5", "8", "A", "C", "1", "7", "4", "6", "2", "B", "9", "3"],
+  ["4", "7", "3", "B", "2", "9", "5", "8", "A", "1", "C", "6"]
+]
+
+solution = Sudoku.find_solution(board, 3)
+solution == expected
+
+```
+
+```elixir
+# 4x4 sudoku
+board = [
+  [".", ".", ".", "."],
+  ["1", "4", ".", "."],
+  [".", ".", "1", "3"],
+  [".", ".", ".", "."]
+]
+
+expected = [
+  ["2", "3", "4", "1"],
+  ["1", "4", "3", "2"],
+  ["4", "2", "1", "3"],
+  ["3", "1", "2", "4"]
+]
+
+solution = Sudoku.find_solution(board, 2)
+solution == expected
+```
+
+```elixir
+# if one of these 9's in the board is changed to another number, there will be no solution,
+# and finding the non-existing solution will eat all systems memory.
+board = [
+  ["9", ".", ".", ".", ".", ".", ".", ".", "."],
+  [".", ".", ".", "9", ".", ".", ".", ".", "."],
+  [".", ".", ".", ".", ".", ".", "9", ".", "."],
+  [".", "9", ".", ".", ".", ".", ".", ".", "."],
+  [".", ".", ".", ".", "9", ".", ".", ".", "."],
+  [".", ".", ".", ".", ".", ".", ".", "9", "."],
+  [".", ".", "9", ".", ".", ".", ".", ".", "."],
+  [".", ".", ".", ".", ".", "9", ".", ".", "."],
+  [".", ".", ".", ".", ".", ".", ".", ".", "9"]
+]
+
+Sudoku.find_solution(board)
 ```
 
 ## Top 75 / 150 Leetcode questions
