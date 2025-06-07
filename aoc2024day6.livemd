@@ -1,0 +1,158 @@
+# Advent of code 2024 - Day 6
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Grid do
+  def listgrid_2_xymap(grid, offset \\ 0) when is_list(grid) do
+    for {row, y} <- Enum.with_index(grid, offset),
+        is_list(row),
+        {val, x} <- Enum.with_index(row, offset) do
+      {{x, y}, val}
+    end
+    |> Enum.into(%{})
+  end
+end
+
+:ok
+```
+
+```elixir
+textarea = Kino.Input.textarea("Give input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input = Kino.Input.read(textarea)
+
+total_length = String.length(input)
+
+listgrid =
+  String.split(input, "\n")
+  |> Enum.map(&String.graphemes/1)
+
+guard_pos =
+  Enum.with_index(listgrid)
+  |> Enum.reduce({-1, -1}, fn {row, y}, acc ->
+    x = Enum.find_index(row, fn c -> c == "^" end)
+    if x != nil, do: {x, y}, else: acc
+  end)
+
+grid =
+  Grid.listgrid_2_xymap(listgrid)
+
+IO.inspect(guard_pos, label: "Guard start position")
+```
+
+```elixir
+# guard starts up. Everytime it hits something, it changes direction.
+# up, right, down, left
+directions = [{0, -1}, {1, 0}, {0, 1}, {-1, 0}]
+
+# acc = {step, direction, guard_pos, visited}
+{steps, _guard_path} =
+  Enum.reduce_while(0..(total_length * 2)//1, {1, 0, guard_pos, [guard_pos]}, fn _elem,
+                                                                                 {step, direction,
+                                                                                  curr_pos =
+                                                                                    {x, y},
+                                                                                  visited} ->
+    {delta_x, delta_y} = Enum.at(directions, rem(direction, length(directions)))
+    next_pos = {x + delta_x, y + delta_y}
+
+    case grid[next_pos] do
+      nil ->
+        {:halt, {step, visited}}
+
+      "#" ->
+        {:cont, {step, direction + 1, curr_pos, visited}}
+
+      _ ->
+        if Enum.member?(visited, next_pos) do
+          {:cont, {step, direction, next_pos, visited}}
+        else
+          {:cont, {step + 1, direction, next_pos, [next_pos | visited]}}
+        end
+    end
+  end)
+
+steps
+```
+
+## Part 2
+
+* The new obstacle must be something in the current path (e.g. one of the positions of part 1)
+* Place the new obstruction at the first encounter of that position, not later.
+* Must be inside the grid
+* Do not put it in the start position
+* Loop detection: after placing the new obstacle, remember all the corners it takes including the direction (by storing current position and position of the obstacle). There is a loop when the same corner was taken before. When getting off grid, it is not a loop.
+* It is not necessairy that it revisits the new obstacle in the loop, other loops can exist.
+* Use recursion. Try all solutions.
+
+This solution runs for 3 seconds for the given aoc input.
+
+```elixir
+defmodule GuardObstruction do
+  @directions [{0, -1}, {1, 0}, {0, 1}, {-1, 0}]
+
+  defp guard_loop_search(grid, direction, {x, y} = curr_pos, visited, obstacle) do
+    {delta_x, delta_y} = Enum.at(@directions, rem(direction, length(@directions)))
+    next_pos = {x + delta_x, y + delta_y}
+    what_is_here = if next_pos == obstacle, do: "#", else: grid[next_pos]
+
+    case what_is_here do
+      nil ->
+        # off the grid, no loop
+        []
+
+      "#" ->
+        if obstacle == nil do
+          # change direction
+          guard_loop_search(grid, direction + 1, curr_pos, visited, obstacle)
+        else
+          step_pair = {curr_pos, next_pos}
+
+          if Enum.member?(visited, step_pair) do
+            # loop, return solution
+            [obstacle]
+          else
+            # remember this corner and change direction
+            guard_loop_search(grid, direction + 1, curr_pos, [step_pair | visited], obstacle)
+          end
+        end
+
+      # . or ^
+      _ ->
+        if obstacle != nil or Enum.member?(visited, next_pos) do
+          # walk to the next position
+          guard_loop_search(grid, direction, next_pos, visited, obstacle)
+        else
+          without = guard_loop_search(grid, direction, next_pos, [next_pos | visited], obstacle)
+
+          with =
+            guard_loop_search(grid, direction + 1, curr_pos, [{curr_pos, next_pos}], next_pos)
+
+          with ++ without
+        end
+    end
+  end
+
+  def guard_loops(grid, guard_start_pos) do
+    guard_loop_search(grid, 0, guard_start_pos, [guard_start_pos], nil)
+  end
+
+  def guard_loop_count(grid, guard_start_pos) do
+    length(guard_loops(grid, guard_start_pos))
+  end
+end
+
+GuardObstruction.guard_loop_count(grid, guard_pos)
+```
