@@ -97,12 +97,13 @@ steps
 * It is not necessairy that it revisits the new obstacle in the loop, other loops can exist.
 * Use recursion. Try all solutions.
 
-This solution runs for 3 seconds for the given aoc input.
-
 ```elixir
 defmodule GuardObstruction do
   @directions [{0, -1}, {1, 0}, {0, 1}, {-1, 0}]
 
+  # visited is used in two ways:
+  # - first a mapset with visited positions are kept.
+  # - when the obstacle is positioned, a new mapset is created to keep the corners it visits.
   defp guard_loop_search(grid, direction, {x, y} = curr_pos, visited, obstacle) do
     {delta_x, delta_y} = Enum.at(@directions, rem(direction, length(@directions)))
     next_pos = {x + delta_x, y + delta_y}
@@ -120,25 +121,25 @@ defmodule GuardObstruction do
         else
           step_pair = {curr_pos, next_pos}
 
-          if Enum.member?(visited, step_pair) do
+          if MapSet.member?(visited, step_pair) do
             # loop, return solution
             [obstacle]
           else
             # remember this corner and change direction
-            guard_loop_search(grid, direction + 1, curr_pos, [step_pair | visited], obstacle)
+            guard_loop_search(grid, direction + 1, curr_pos, MapSet.put(visited, step_pair), obstacle)
           end
         end
 
       # . or ^
       _ ->
-        if obstacle != nil or Enum.member?(visited, next_pos) do
+        if obstacle != nil or MapSet.member?(visited, next_pos) do
           # walk to the next position
           guard_loop_search(grid, direction, next_pos, visited, obstacle)
         else
-          without = guard_loop_search(grid, direction, next_pos, [next_pos | visited], obstacle)
+          without = guard_loop_search(grid, direction, next_pos, MapSet.put(visited, next_pos), obstacle)
 
           with =
-            guard_loop_search(grid, direction + 1, curr_pos, [{curr_pos, next_pos}], next_pos)
+            guard_loop_search(grid, direction + 1, curr_pos, MapSet.new([{curr_pos, next_pos}]), next_pos)
 
           with ++ without
         end
@@ -146,7 +147,7 @@ defmodule GuardObstruction do
   end
 
   def guard_loops(grid, guard_start_pos) do
-    guard_loop_search(grid, 0, guard_start_pos, [guard_start_pos], nil)
+    guard_loop_search(grid, 0, guard_start_pos, MapSet.new([guard_start_pos]), nil)
   end
 
   def guard_loop_count(grid, guard_start_pos) do
