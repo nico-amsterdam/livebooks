@@ -78,6 +78,118 @@ end
   )
 ```
 
+## Longest common subsequence
+
+https://leetcode.com/problems/longest-common-subsequence/description/
+
+category: dynamic programming
+
+level: medium (but imho it's hard)
+
+```elixir
+
+# Do not confuse this lcs with longest common substring.
+# Unlike substrings, subsequences are not required to occupy consecutive positions 
+# within the original sequences.
+
+
+# Javascript solution from Leetcode.com:
+# var longestCommonSubsequence = function(text1, text2) {
+#     const dp = Array(text1.length).fill(0);
+#     let longest = 0;
+#     for (const c of text2) {
+#         let curLength = 0;
+#         for (let i = 0; i < dp.length; i++) {
+#             if (curLength < dp[i]) {   
+#                 curLength = dp[i];
+#             } else if (c === text1[i]) {
+#                 dp[i] = curLength + 1;
+#                 longest = Math.max(longest, curLength + 1);
+#             }
+#         }
+#     }
+#     return longest;    
+# };
+
+# Took the above javascript solution and modified it.
+# Instead of only looking only at the length of the solution,
+# keep tracking of what the solution actually is,
+# so keep the sequences in: dp, longest and current_list (instead of currLength).
+defmodule LongestCommonSubsequence do
+  defp lcs_charlists([], _text2), do: []
+  defp lcs_charlists(_text1, []), do: []
+
+  defp lcs_charlists(text1, text2) do
+    dp_range = 0..(length(text1) - 1)//1
+
+    {reverse_solution, _dp, _cl} =
+      Enum.reduce(text2, {[], %{}, []}, fn text2_char, {longest_all, dp_all, _cl} ->
+        Enum.reduce(dp_range, {longest_all, dp_all, []}, fn dp_index,
+                                                            {longest, dp, current_list} ->
+          dp_list = dp[dp_index] || []
+          current_length = length(current_list)
+
+          if current_length < length(dp_list) do
+            # dp contains longer solution for the current text2_char
+            # so even when the character would match text1
+            # we can continue with what currently in dp_list;
+            # it will be at least as good.
+            {longest, dp, dp_list}
+          else
+            if Enum.at(text1, dp_index) == text2_char do
+              dp_list_new = [text2_char | current_list]
+              dp_new = Map.put(dp, dp_index, dp_list_new)
+
+              # dp has changed, so what is now the longest solution?
+              longest_new =
+                if current_length + 1 > length(longest) do
+                  dp_list_new
+                else
+                  longest
+                end
+
+              # Current_list does not change here, because
+              # if the current text2_char occurs repeatedly in text1 
+              # it does not increase the length of the solution.
+              # For example when text1 = "AAA" and text2 = "AZZZZ" the outcome 
+              # must be "A" and not "AAA".
+              {longest_new, dp_new, current_list}
+            else
+              {longest, dp, current_list}
+            end
+          end
+        end)
+      end)
+
+    Enum.reverse(reverse_solution)
+  end
+
+  def lcs(text1, text2) when is_binary(text1) and is_binary(text2) do
+    # It might more efficient if text1 is the smallest when calling lcs_charlists.
+    solution =
+      if String.length(text1) <= String.length(text2) do
+        lcs_charlists(to_charlist(text1), to_charlist(text2))
+      else
+        lcs_charlists(to_charlist(text2), to_charlist(text1))
+      end
+
+    to_string(solution)
+  end
+
+  def lcs_length(text1, text2) do
+    String.length(lcs(text1, text2))
+  end
+end
+
+:ok
+```
+
+```elixir
+1 = LongestCommonSubsequence.lcs_length("AAA", "AZZZ")
+
+"BBCC" = LongestCommonSubsequence.lcs("AABWBXYZTCCCD", "GGGDBHBIBCQCAGGGGGG")
+```
+
 ## Helper: NumberPriorityQueue
 
 A general purpose module named NumberPriorityQueue for some of the Leetcode assignments.
@@ -398,7 +510,7 @@ SortPos.right_insert_pos([1, 2, 2, 4], 2)
 
 https://leetcode.com/problems/longest-increasing-subsequence/description/
 
-level: medium
+level: medium (but imho it's hard)
 
 category: dynamic programming
 
@@ -867,6 +979,7 @@ defmodule CherryPickup do
     cherry_path1 = grid[{x1, y1}] || -1
     cherry_path2 = grid[{x2, y2}] || -1
 
+    # if both paths are on the same cell, only one cherry can be counted.
     cond do
       cherry_path1 == -1 or cherry_path2 == -1 -> -1
       x1 == x2 and y1 == y2 -> cherry_path1
@@ -1021,9 +1134,10 @@ defmodule Sudoku do
     end
 
     def new(columns, regions_in_topside) do
-      # positions. zero-based index    
+      # The cell_range are the positions. A zero-based index is used for the positions.    
       cell_range = 0..(columns - 1)//1
-      # for bigger than 9x9 sudoku's like 16x16: A=10 .. G=16, grid should contain 0-9 and A..G
+      # for bigger than 9x9 sudoku's like 16x16: A=10 .. G=16, grid should contain 0-9 and A..G,
+      # but the value_range for a 16x16 sudoku is 1..16
       value_range = 1..columns//1
       {region_width, region_height} = calc_region_with_and_height(cell_range, regions_in_topside)
 
@@ -1308,6 +1422,25 @@ expected = [
 
 solution = Sudoku.find_solution(board, 2)
 solution == expected
+```
+
+```elixir
+# Looked for hard Sudoku's.
+# This takes 2441 iterations,
+# but still less than 80ms
+board = [
+  [".", ".", ".", "2", ".", "3", ".", ".", "."],
+  ["1", ".", ".", ".", "7", ".", ".", ".", "2"],
+  [".", ".", "5", "8", "1", ".", ".", "4", "."],
+  [".", ".", "8", "1", "2", ".", ".", "7", "."],
+  [".", ".", ".", ".", ".", ".", "8", "2", "."],
+  ["5", ".", ".", ".", ".", ".", "9", ".", "."],
+  ["2", "4", ".", "3", ".", ".", "6", "9", "."],
+  ["6", ".", ".", ".", ".", "9", ".", ".", "1"],
+  [".", ".", ".", ".", ".", ".", ".", ".", "."]
+]
+
+Sudoku.find_solution(board)
 ```
 
 ```elixir
