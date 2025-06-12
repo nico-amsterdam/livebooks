@@ -59,30 +59,33 @@ IO.inspect(guard_pos, label: "Guard start position")
 directions = [{0, -1}, {1, 0}, {0, 1}, {-1, 0}]
 
 # acc = {step, direction, guard_pos, visited}
-{steps, _guard_path} =
-  Enum.reduce_while(0..(total_length * 2)//1, {1, 0, guard_pos, [guard_pos]}, fn _elem,
-                                                                                 {step, direction,
-                                                                                  curr_pos =
-                                                                                    {x, y},
-                                                                                  visited} ->
-    {delta_x, delta_y} = Enum.at(directions, rem(direction, length(directions)))
-    next_pos = {x + delta_x, y + delta_y}
+{steps, _guard_visited} =
+  Enum.reduce_while(
+    0..(total_length * 2)//1,
+    {1, 0, guard_pos, MapSet.new([guard_pos])},
+    fn _elem,
+       {step, direction,
+        curr_pos =
+          {x, y}, visited} ->
+      {delta_x, delta_y} = Enum.at(directions, rem(direction, length(directions)))
+      next_pos = {x + delta_x, y + delta_y}
 
-    case grid[next_pos] do
-      nil ->
-        {:halt, {step, visited}}
+      case grid[next_pos] do
+        nil ->
+          {:halt, {step, visited}}
 
-      "#" ->
-        {:cont, {step, direction + 1, curr_pos, visited}}
+        "#" ->
+          {:cont, {step, direction + 1, curr_pos, visited}}
 
-      _ ->
-        if Enum.member?(visited, next_pos) do
-          {:cont, {step, direction, next_pos, visited}}
-        else
-          {:cont, {step + 1, direction, next_pos, [next_pos | visited]}}
-        end
+        _ ->
+          if MapSet.member?(visited, next_pos) do
+            {:cont, {step, direction, next_pos, visited}}
+          else
+            {:cont, {step + 1, direction, next_pos, MapSet.put(visited, next_pos)}}
+          end
+      end
     end
-  end)
+  )
 
 steps
 ```
