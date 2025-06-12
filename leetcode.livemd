@@ -87,11 +87,9 @@ category: dynamic programming
 level: medium (but imho it's hard)
 
 ```elixir
-
 # Do not confuse this lcs with longest common substring.
 # Unlike substrings, subsequences are not required to occupy consecutive positions 
 # within the original sequences.
-
 
 # Javascript solution from Leetcode.com:
 # var longestCommonSubsequence = function(text1, text2) {
@@ -123,9 +121,11 @@ defmodule LongestCommonSubsequence do
     dp_range = 0..(length(text1) - 1)//1
 
     {reverse_solution, _dp, _cl} =
-      Enum.reduce(text2, {[], %{}, []}, fn text2_char, {longest_all, dp_all, _cl} ->
-        Enum.reduce(dp_range, {longest_all, dp_all, []}, fn dp_index,
-                                                            {longest, dp, current_list} ->
+      for text2_char <- text2,
+          dp_index <- dp_range,
+          reduce: {[], %{}, []} do
+        {longest, dp, current_list} ->
+          current_list = if dp_index == 0, do: [], else: current_list
           dp_list = dp[dp_index] || []
           current_length = length(current_list)
 
@@ -158,8 +158,7 @@ defmodule LongestCommonSubsequence do
               {longest, dp, current_list}
             end
           end
-        end)
-      end)
+      end
 
     Enum.reverse(reverse_solution)
   end
