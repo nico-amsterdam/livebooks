@@ -78,6 +78,86 @@ end
   )
 ```
 
+## Course schedule II
+
+https://leetcode.com/problems/course-schedule-ii/description/
+
+category: graph, Kahn's Algorithm
+
+level: medium
+
+```elixir
+
+defmodule Kahn do
+
+  def update_graph(_list_of_dependencies, _in_edges_counts, [], sorted_list), do: sorted_list
+  
+  
+  def update_graph(list_of_dependencies, %{} = in_edges_counts, remove_nodes, sorted_list) do
+    {new_list_of_dependencies, new_in_edges_counts, new_stack} =
+    Enum.reduce(list_of_dependencies, {[], in_edges_counts, []}, fn edge,
+                                                                    {acc_list_of_dependencies,
+                                                                     acc_in_edges_counts,
+                                                                     acc_stack} ->
+      [to, from] = edge
+
+      if Enum.member?(remove_nodes, from) do
+        count = Map.get(acc_in_edges_counts, to) - 1
+        acc_in_edges_counts = Map.put(acc_in_edges_counts, to, count)
+        acc_stack = if count == 0, do: [to | acc_stack], else: acc_stack
+        {acc_list_of_dependencies, acc_in_edges_counts, acc_stack}
+      else
+        {[edge | acc_list_of_dependencies], acc_in_edges_counts, acc_stack}
+      end
+    end)
+
+    new_stack = Enum.reverse(new_stack)
+
+    update_graph(new_list_of_dependencies, new_in_edges_counts, new_stack, [new_stack | sorted_list])
+  end
+
+  def in_edges_count(list_of_dependencies) do
+    Enum.reduce(list_of_dependencies, %{}, fn edge, acc_in_edges_counts ->
+      [to, _from] = edge
+      count = Map.get(acc_in_edges_counts, to) || 0
+      Map.put(acc_in_edges_counts, to, count + 1)
+    end)
+  end
+
+  # Returns a proper list with the sorted topology.
+  #
+  # input:
+  # - list of dependencies
+  # [[1,2]] means node 1 is dependent on 2, so in the sorted outcome 2 must be placed first.
+  # [[1,2],[2,3]] and if 2 depends on 3, 3 must be first, so the outcome is [3,2,1].
+  # [[1,1]] cycles are excluded from the outcome, so the result here is [].
+  def topological_sort(list_of_dependencies) do
+    in_edges_counts = in_edges_count(list_of_dependencies)
+
+    all_from =
+      Enum.reduce(list_of_dependencies, MapSet.new(), fn [_to, from], acc ->
+        MapSet.put(acc, from)
+        end) |> MapSet.to_list()
+
+    stack = all_from -- Map.keys(in_edges_counts)
+
+    update_graph(list_of_dependencies, in_edges_counts, stack, [stack])
+    |> Enum.reverse()
+  end
+end
+
+:ok
+```
+
+```elixir
+# prerequisites = [[1,0],[2,0],[3,1],[3,2]]
+
+prerequisites = [[6,0],[2,1],[4,1],[6,1],[0,3],[4,3],[1,5],[0,7],[1,7]]
+
+# multiple solutions are possible.
+Kahn.topological_sort(prerequisites) |> List.flatten()
+```
+
 ## Longest common subsequence
 
 https://leetcode.com/problems/longest-common-subsequence/description/
@@ -132,7 +212,7 @@ defmodule LongestCommonSubsequence do
           if current_length < length(dp_list) do
             # dp contains longer solution for the current text2_char
             # so even when the character would match text1
-            # we can continue with what currently in dp_list;
+            # we can continue with what is currently in dp_list;
             # it will be at least as good.
             {longest, dp, dp_list}
           else
