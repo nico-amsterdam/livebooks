@@ -1,0 +1,114 @@
+# Advent of code 2024 - Day 7
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2024/day/7
+
+```elixir
+textarea = Kino.Input.textarea("Give input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+equations =
+  Kino.Input.read(textarea)
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line -> [total, values_line] = String.split(line, ": ") 
+        { String.to_integer(total), Enum.map(String.split(values_line), &String.to_integer/1) }
+     end)
+
+:ok
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Solve do
+  defp equation(_total, [], _oper), do: []
+  defp equation(total, [total], oper), do: Enum.reverse(oper)
+  defp equation(_total, [_val], _oper), do: []
+
+  defp equation(total, [val1, val2 | other], oper) do
+    plus = equation(total, [val1 + val2 | other], ["+" | oper])
+    multi = equation(total, [val1 * val2 | other], ["*" | oper])
+
+    if plus != [] and multi != [] do
+      # two solutions
+      [plus, multi]
+    else
+      plus ++ multi
+    end
+  end
+
+  def equation({total, values}), do: equation(total, values, [])
+end
+
+IO.inspect Solve.equation({45, [3, 5, 3]})
+IO.inspect Solve.equation({24, [3, 5, 3]})
+IO.inspect Solve.equation({18, [3, 5, 3]})
+IO.inspect Solve.equation({3267, [81, 40, 27]})
+IO.inspect Solve.equation({6537, [1, 81, 40, 27, 2, 3]})
+
+Enum.filter(equations, fn equation -> Solve.equation(equation) != [] end) 
+|> Enum.map(fn {total, _values} -> total end)
+|> Enum.sum
+
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule SolvePart2 do
+  defp equation(_total, [], _oper), do: []
+  defp equation(total, [total], oper), do: Enum.reverse(oper)
+  defp equation(_total, [_val], _oper), do: []
+
+  # when negative numbers and 0 are not in the input, apply this optimalization:
+  # defp equation(total, [val | _other], _oper) when val > total, do: []
+
+  defp equation(total, [val1, val2 | other], oper) do
+    plus = equation(total, [val1 + val2 | other], ["+" | oper])
+    multi = equation(total, [val1 * val2 | other], ["*" | oper])
+
+    concat =
+      equation(total, [String.to_integer(to_string(val1) <> to_string(val2)) | other], [
+        "|" | oper
+      ])
+
+    cond do
+      plus != [] and multi != [] and concat != [] ->
+        [plus, multi, concat]
+
+      concat == [] and plus != [] and multi != [] ->
+        [plus, multi]
+
+      concat == [] ->
+        plus ++ multi
+
+      plus != [] ->
+        [plus, concat]
+
+      multi != [] ->
+        [multi, concat]
+
+      true ->
+        concat
+    end
+  end
+
+  def equation({total, values}), do: equation(total, values, [])
+end
+
+Enum.filter(equations, fn equation -> SolvePart2.equation(equation) != [] end)
+|> Enum.map(fn {total, _values} -> total end)
+|> Enum.sum()
+```
