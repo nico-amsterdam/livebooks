@@ -31,6 +31,9 @@ equations =
 
 ```elixir
 defmodule Solve do
+  defp wrap_single_list([not_a_list | r]) when not is_list(not_a_list), do: [[not_a_list | r]]
+  defp wrap_single_list(list_of_list), do: list_of_list
+
   defp equation(_total, [], _oper), do: []
   defp equation(total, [total], oper), do: Enum.reverse(oper)
   defp equation(_total, [_val], _oper), do: []
@@ -41,7 +44,7 @@ defmodule Solve do
 
     if plus != [] and multi != [] do
       # two solutions
-      [plus, multi]
+      wrap_single_list(plus) ++ wrap_single_list(multi)
     else
       plus ++ multi
     end
@@ -50,16 +53,27 @@ defmodule Solve do
   def equation({total, values}), do: equation(total, values, [])
 end
 
-IO.inspect Solve.equation({45, [3, 5, 3]})
-IO.inspect Solve.equation({24, [3, 5, 3]})
-IO.inspect Solve.equation({18, [3, 5, 3]})
-IO.inspect Solve.equation({3267, [81, 40, 27]})
-IO.inspect Solve.equation({6537, [1, 81, 40, 27, 2, 3]})
+["*", "*"] = Solve.equation({45, [3, 5, 3]})
+["+", "*"] = Solve.equation({24, [3, 5, 3]})
+["*", "+"] = Solve.equation({18, [3, 5, 3]})
+[] = Solve.equation({19, [3, 4, 5]})
+[["+", "*"], ["*", "+"]] = Solve.equation({3267, [81, 40, 27]})
 
-Enum.filter(equations, fn equation -> Solve.equation(equation) != [] end) 
+[["*", "+", "*", "*", "+"], ["*", "*", "+", "*", "+"]] =
+  Solve.equation({6537, [1, 81, 40, 27, 2, 3]})
+
+# [["*", "+", "*", "*", "+"], ["*", "*", "+", "*", "+"]] =
+[["+", "*", "*", "*"], ["*", "*", "*", "*"]] = Solve.equation({48, [2, 2, 2, 3, 2]})
+
+[
+  ["+", "+", "*", "+", "+", "+", "*", "+", "*", "*", "*"],
+  ["*", "*", "+", "+", "+", "*", "+", "+", "+", "*", "*"],
+  ["*", "*", "+", "+", "+", "*", "+", "+", "*", "+", "*"]
+] = Solve.equation({6174, [5, 4, 3, 11, 9, 9, 7, 4, 401, 1, 1, 6]})
+
+Enum.filter(equations, fn equation -> Solve.equation(equation) != [] end)
 |> Enum.map(fn {total, _values} -> total end)
-|> Enum.sum
-
+|> Enum.sum()
 ```
 
 ## Part 2
@@ -68,8 +82,11 @@ Enum.filter(equations, fn equation -> Solve.equation(equation) != [] end)
 
 ```elixir
 defmodule SolvePart2 do
+  defp wrap_single_list([not_a_list | r]) when not is_list(not_a_list), do: [[not_a_list | r]]
+  defp wrap_single_list(list_of_list), do: list_of_list
+  
   defp equation(_total, [], _oper), do: []
-  defp equation(total, [total], oper), do: Enum.reverse(oper)
+  defp equation(total, [total], operation_list), do: Enum.reverse(operation_list)
   defp equation(_total, [_val], _oper), do: []
 
   # when negative numbers and 0 are not in the input, apply this optimalization:
@@ -80,33 +97,32 @@ defmodule SolvePart2 do
     multi = equation(total, [val1 * val2 | other], ["*" | oper])
 
     concat =
-      equation(total, [String.to_integer(to_string(val1) <> to_string(val2)) | other], [
-        "|" | oper
-      ])
+      equation(
+        total,
+        [String.to_integer(to_string(val1) <> to_string(val2)) | other],
+        ["|" | oper]
+      )
 
-    cond do
-      plus != [] and multi != [] and concat != [] ->
-        [plus, multi, concat]
-
-      concat == [] and plus != [] and multi != [] ->
-        [plus, multi]
-
-      concat == [] ->
-        plus ++ multi
-
-      plus != [] ->
-        [plus, concat]
-
-      multi != [] ->
-        [multi, concat]
-
-      true ->
-        concat
+    solutions = Enum.filter([plus, multi, concat], fn operation_list -> operation_list != [] end)
+ 
+    if Enum.count(solutions) == 1 do
+      [operation_list] = solutions
+      operation_list
+    else
+      Enum.map(solutions, &wrap_single_list/1) |> Enum.reduce([], fn x, acc -> x ++ acc end)
     end
   end
 
   def equation({total, values}), do: equation(total, values, [])
 end
+
+["|"] = SolvePart2.equation({156, [15, 6]})
+
+[
+  ["*", "*", "+", "+", "+", "*", "+", "+", "*", "+", "*"],
+  ["*", "*", "+", "+", "+", "*", "+", "+", "+", "*", "*"],
+  ["+", "+", "*", "+", "+", "+", "*", "+", "*", "*", "*"]
+] = SolvePart2.equation({6174, [5, 4, 3, 11, 9, 9, 7, 4, 401, 1, 1, 6]})
 
 Enum.filter(equations, fn equation -> SolvePart2.equation(equation) != [] end)
 |> Enum.map(fn {total, _values} -> total end)
