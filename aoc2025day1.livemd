@@ -1,0 +1,58 @@
+# Advent of code 2025 day 1
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/1
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+rotations =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn
+    "L" <> rotate -> {-1, String.to_integer(rotate)}
+    "R" <> rotate -> {1, String.to_integer(rotate)}
+  end)
+
+length(rotations)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Enum.reduce(rotations, {0, 50}, fn {sign, rotate}, {null_count, dail_position} ->
+  new_position = dail_position + sign * Integer.mod(rotate, 100)
+  new_position = if new_position < 0, do: new_position + 100, else: Integer.mod(new_position, 100)
+  new_null_count = if new_position == 0, do: null_count + 1, else: null_count
+  {new_null_count, new_position}
+end)
+
+# prints {null count, last position}
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Enum.reduce(rotations, {0, 50}, fn {sign, rotate}, {null_count, dail_position} ->
+  new_position = dail_position + sign * Integer.mod(rotate, 100)
+  extra_counts = div(rotate, 100)
+  new_null_count = if (new_position <= 0 and dail_position != 0) or new_position >= 100, do: null_count + 1, else: null_count
+  new_position = if new_position < 0, do: new_position + 100, else: Integer.mod(new_position, 100)
+  {new_null_count + extra_counts, new_position}
+end)
+
+# prints {null count, last position}
+```
