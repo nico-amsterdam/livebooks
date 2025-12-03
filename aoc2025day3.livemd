@@ -20,7 +20,7 @@ input = Kino.Input.textarea("Please give me input:")
 list_of_banks =
   Kino.Input.read(input)
   |> String.split("\n", trim: true)
-  |> Enum.map(fn str -> String.to_integer(str) |> Integer.digits end)
+  |> Enum.map(fn str -> String.to_charlist(str) |> Enum.map(& &1 - ?0) end)
 
 length(list_of_banks)
 ```
