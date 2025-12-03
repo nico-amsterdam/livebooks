@@ -1,0 +1,97 @@
+# Advent of code 2025 day 2
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/3
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+list_of_banks =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn str -> String.to_integer(str) |> Integer.digits end)
+
+length(list_of_banks)
+```
+
+```elixir
+defmodule Part1 do
+  def highest_joltage(bank) when is_list(bank) do
+    digits =
+      Enum.chunk_every(bank, 2, 1, :discard)
+      |> Enum.reduce(
+        [0, 0],
+        fn [val1, val2], acc ->
+          [highest, afterHighest] = acc
+          cond do
+            val1 > highest -> [val1, val2]
+            val2 > afterHighest -> [highest, val2]
+            true -> acc
+          end
+        end
+      )
+
+    Integer.undigits(digits)
+  end
+
+  def total_output_jotage(list_of_banks) do
+    Enum.map(list_of_banks, &highest_joltage/1) |> Enum.sum()
+  end
+end
+
+Part1.total_output_jotage(list_of_banks)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def highest_joltage(bank) when is_list(bank) do
+    digest =
+      Enum.chunk_every(bank, 12, 1, :discard)
+      |> Enum.reduce(
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        fn [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12], acc ->
+          [h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12] = acc
+
+          cond do
+            v1 > h1 ->   [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]
+            v2 > h2 ->   [h1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]
+            v3 > h3 ->   [h1, h2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]
+            v4 > h4 ->   [h1, h2, h3, v4, v5, v6, v7, v8, v9, v10, v11, v12]
+            v5 > h5 ->   [h1, h2, h3, h4, v5, v6, v7, v8, v9, v10, v11, v12]
+            v6 > h6 ->   [h1, h2, h3, h4, h5, v6, v7, v8, v9, v10, v11, v12]
+            v7 > h7 ->   [h1, h2, h3, h4, h5, h6, v7, v8, v9, v10, v11, v12]
+            v8 > h8 ->   [h1, h2, h3, h4, h5, h6, h7, v8, v9, v10, v11, v12]
+            v9 > h9 ->   [h1, h2, h3, h4, h5, h6, h7, h8, v9, v10, v11, v12]
+            v10 > h10 -> [h1, h2, h3, h4, h5, h6, h7, h8, h9, v10, v11, v12]
+            v11 > h11 -> [h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, v11, v12]
+            v12 > h12 -> [h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, v12]
+            true -> acc
+          end
+        end
+      )
+
+    Integer.undigits(digest)
+  end
+
+  def total_output_jotage(list_of_banks) do
+    Enum.map(list_of_banks, &highest_joltage/1) |> Enum.sum()
+  end
+end
+
+Part2.total_output_jotage(list_of_banks)
+```
