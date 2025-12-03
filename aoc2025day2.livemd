@@ -12,8 +12,6 @@ https://adventofcode.com/2025/day/2
 
 ```elixir
 input = Kino.Input.textarea("Please give me input:")
-
-# 11-22,95-115,998-1012,1188511880-1188511890,222220-222224,1698522-1698528,446443-446449,38593856-38593862,565653-565659,824824821-824824827,2121212118-2121212124
 ```
 
 <!-- livebook:{"reevaluate_automatically":true} -->
@@ -64,35 +62,22 @@ Part1.check_ranges(product_id_ranges) |> List.flatten |> Enum.sum
 
 ```elixir
 defmodule Part2 do
-  def divisions_to_check(len) when len <= 1, do: []
+  def divisions(len) when len <= 1, do: []
 
-  def divisions_to_check(len) do
-    Enum.filter(1..div(len, 2), fn division -> division > 0 and rem(len, division) == 0 end)
-  end
-
-  def all_equal([part | other_list_of_chars]) do
-    first_part = :binary.list_to_bin(part)
-
-    Enum.reduce_while(other_list_of_chars, true, fn other_part, _acc ->
-      also_equal = :binary.list_to_bin(other_part) == first_part
-
-      if also_equal do
-        {:cont, true}
-      else
-        {:halt, false}
-      end
-    end)
+  def divisions(len) do
+    Enum.filter(1..div(len, 2), fn division -> rem(len, division) == 0 end)
   end
 
   def check_range(from, to) do
     Enum.filter(from..to, fn product_id ->
-      split_this = Integer.to_charlist(product_id)
-      full_length = length(split_this)
-      divisions = divisions_to_check(full_length)
+      split_this = Integer.to_string(product_id)
+      full_length = String.length(split_this)
+      list_of_slice_lengths = divisions(full_length)
 
-      Enum.reduce_while(divisions, false, fn division, _acc ->
-        compare_these = Enum.chunk_every(split_this, division)
-        found = all_equal(compare_these)
+      Enum.reduce_while(list_of_slice_lengths, false, fn slice_length, _acc ->
+        first = String.slice(split_this, 0, slice_length)
+        total = String.duplicate(first, div(full_length, slice_length))
+        found = (split_this == total)
 
         if found do
           {:halt, true}
