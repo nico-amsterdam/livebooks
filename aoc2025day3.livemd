@@ -60,7 +60,7 @@ Part1.total_output_jotage(list_of_banks)
 ```elixir
 defmodule Part2 do
   def highest_joltage(bank) when is_list(bank) do
-    digest =
+    digits =
       Enum.chunk_every(bank, 12, 1, :discard)
       |> Enum.reduce(
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -85,7 +85,7 @@ defmodule Part2 do
         end
       )
 
-    Integer.undigits(digest)
+    Integer.undigits(digits)
   end
 
   def total_output_jotage(list_of_banks) do
