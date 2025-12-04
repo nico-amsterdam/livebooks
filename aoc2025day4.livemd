@@ -1,0 +1,153 @@
+# Advent of code 2025 day 1
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"},
+  {:vega_lite, "~> 0.1.11"},
+  {:kino_vega_lite, "~> 0.1.13"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/1
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+grid =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+
+length(grid)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Grid do
+  def listgrid_2_xymap(grid, offset \\ 0) when is_list(grid) do
+    for {str, y} <- Enum.with_index(grid, offset),
+        row = String.to_charlist(str),
+        is_list(row),
+        {val, x} <- Enum.with_index(row, offset) do
+      {{x, y}, val}
+    end
+    |> Enum.into(%{})
+  end
+
+  def xymap_2_listgrid(%{} = grid, %Range{} = x_range, %Range{} = y_range) do
+    for y <- y_range do
+      for x <- x_range do
+        grid[{x, y}]
+      end
+    end
+  end
+end
+
+xymap = Grid.listgrid_2_xymap(grid)
+
+:ok
+
+# Enum.each(xymap, fn  {{x, y}, val} ->
+#    if val == ?@ and y == 0 do
+#      IO.inspect({x, y})
+#    end
+# end)
+
+# xymap
+# Grid.xymap_2_listgrid(xymap, 0..9, 0..9)
+```
+
+```elixir
+defmodule Part1 do
+  @surround [{-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}]
+  def countAdjacent(xymap, allready_removed_map, x, y) do
+    Enum.reduce(@surround, 0, fn {x_offset, y_offset}, subtotal ->
+      check_xy = {x + x_offset, y + y_offset}
+      subtotal +
+        if !MapSet.member?(allready_removed_map, check_xy) and
+             xymap[check_xy] == ?@,
+           do: 1,
+           else: 0
+    end)
+  end
+
+  def countFewerThan4Rolls(xymap, allready_removed_list) do
+    allready_removed_map = MapSet.new(allready_removed_list)
+
+    Enum.reduce(xymap, [], fn {{x, y}, val}, remove_these ->
+      if val == ?@ and !MapSet.member?(allready_removed_map, {x, y}) and
+           countAdjacent(xymap, allready_removed_map, x, y) < 4 do
+        [{x, y} | remove_these]
+      else
+        remove_these
+      end
+    end)
+  end
+end
+
+can_be_removed = Part1.countFewerThan4Rolls(xymap, [])
+length(can_be_removed)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def countFewerThan4Rolls(xymap) do
+    Stream.cycle([0])
+    |> Enum.reduce_while([], fn _cycle, allready_removed ->
+      remove_these_also = Part1.countFewerThan4Rolls(xymap, allready_removed)
+
+      if length(remove_these_also) > 0 do
+        {:cont, allready_removed ++ remove_these_also}
+      else
+        {:halt, allready_removed}
+      end
+    end)
+  end
+end
+
+remove_these = Part2.countFewerThan4Rolls(xymap)
+length(remove_these)
+```
+
+## Visualisation
+
+```elixir
+alias VegaLite, as: Vl
+
+remove_these_map = MapSet.new(remove_these)
+
+paper_rolls =
+  Vl.new(height: 500, width: 500)
+  |> Vl.data_from_values(
+    Enum.map(xymap, fn {{x, y}, h} ->
+      %{
+        "x" => x,
+        "y" => -y,
+        "h" =>
+          if(h == ?@, do: if(MapSet.member?(remove_these_map, {x, y}), do: 2, else: 1), else: 0)
+      }
+    end)
+  )
+  |> Vl.mark(:circle, opacity: 0.8)
+  |> Vl.encode_field(:x, "x", type: :quantitative, axis: false)
+  |> Vl.encode_field(:y, "y", type: :quantitative, axis: false)
+  |> Vl.encode_field(:color, "h",
+    type: :quantitative,
+    scale: [domain: [0, 2], range: ["green", "yellow", "red"]]
+  )
+  |> Kino.VegaLite.new()
+
+# red = removed
+# yellow = still a paper roll
+# green = there was never a paper roll here
+```
