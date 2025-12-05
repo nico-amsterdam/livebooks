@@ -31,7 +31,7 @@ overlapping_ranges =
     String.to_integer(from)..String.to_integer(to)//1
   end)
 
-:ok
+length(overlapping_ranges)
 ```
 
 <!-- livebook:{"reevaluate_automatically":true} -->
@@ -66,21 +66,21 @@ length(unique_ids) - length(spoiled_ids)
 
 ```elixir
 defmodule Part2 do
-  def combine_ranges([], combined_range, stack) do
-    [combined_range | stack]
+  def combine_ranges([], combined_range, ranges_without_overlap) do
+    [combined_range | ranges_without_overlap]
   end
 
-  # stack contains the handled ranges
-  def combine_ranges([from..to//1 | combined_list], low..high//1, stack)
+  # ranges_without_overlap contains the handled ranges
+  def combine_ranges([from..to//1 | combined_list], low..high//1, ranges_without_overlap)
       when low > to or high < from do
     # no overlap
-    combine_ranges(combined_list, low..high//1, [from..to//1 | stack])
+    combine_ranges(combined_list, low..high//1, [from..to//1 | ranges_without_overlap])
   end
 
-  def combine_ranges([from..to//1 | combined_list], low..high//1, stack) do
+  def combine_ranges([from..to//1 | combined_list], low..high//1, ranges_without_overlap) do
     # There is a new combination to be made to eliminate the overlap.
-    # Restart from the beginning to check all combinations with this new range.
-    combine_ranges(stack ++ combined_list, min(from, low)..max(to, high)//1, [])
+    # Continue with the combined range.
+    combine_ranges(combined_list, min(from, low)..max(to, high)//1, ranges_without_overlap)
   end
 
   def loop_all_ranges_and_combine([first_range | overlapping_ranges]) do
@@ -90,7 +90,8 @@ defmodule Part2 do
   end
 end
 
-ranges_without_overlap = Part2.loop_all_ranges_and_combine(overlapping_ranges)
+sorted_overlapping_ranges = Enum.sort_by(overlapping_ranges, fn from..to//1 -> {from, to} end)
+ranges_without_overlap = Part2.loop_all_ranges_and_combine(sorted_overlapping_ranges)
 
 Enum.sum_by(ranges_without_overlap, fn from..to//1 -> to - from + 1 end)
 ```
