@@ -1,4 +1,4 @@
-# Advent of code 2025 day 1
+# Advent of code 2025 day 4
 
 ```elixir
 Mix.install([
@@ -10,7 +10,7 @@ Mix.install([
 
 ## Part 1
 
-https://adventofcode.com/2025/day/1
+https://adventofcode.com/2025/day/4
 
 ```elixir
 input = Kino.Input.textarea("Please give me input:")
