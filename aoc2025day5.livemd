@@ -38,16 +38,16 @@ overlapping_ranges =
 
 ```elixir
 defmodule Part1 do
-  def remove_numbers(ids, from, to) do
-    Enum.reject(ids, fn ingredient_id -> ingredient_id >= from and ingredient_id <= to end)
+  def remove_numbers(ids, range) do
+    Enum.reject(ids, fn ingredient_id -> ingredient_id in range end)
   end
 
   def get_spoiled_ingredients(overlapping_ranges, unique_ids) do
-    Enum.reduce_while(overlapping_ranges, unique_ids, fn from..to//1, ids_minus_fresh ->
-      new_ids_minus_fresh = remove_numbers(ids_minus_fresh, from, to)
+    Enum.reduce_while(overlapping_ranges, unique_ids, fn range, ids_minus_fresh ->
+      new_ids_minus_fresh = remove_numbers(ids_minus_fresh, range)
 
       if new_ids_minus_fresh == [] do
-        {:halt, new_ids_minus_fresh}
+        {:halt, []}
       else
         {:cont, new_ids_minus_fresh}
       end
@@ -66,25 +66,21 @@ length(unique_ids) - length(spoiled_ids)
 
 ```elixir
 defmodule Part2 do
-  def combine_2_ranges(from..to//1, low..high//1) do
-    if low > to or high < from, do: nil, else:  min(from, low)..max(to, high)//1
-  end
-
   def combine_ranges([], combined_range, stack) do
     [combined_range | stack]
   end
-  
-  def combine_ranges([first_range | combined_list], compare_with_range, stack) do
-    combined_range = combine_2_ranges(first_range, compare_with_range)
-    if is_nil(combined_range) do
-      # no overlap
-      combine_ranges(combined_list, compare_with_range, [first_range | stack])
-    else
-      # first_range is eliminated, it is in the new combined_range.
-      # compare_with_range will not be used anymore because it is also in the combined_range.
-      # restart from the beginning to check all combinations.
-      combine_ranges(stack ++ combined_list, combined_range, [])
-    end
+
+  # stack contains the handled ranges
+  def combine_ranges([from..to//1 | combined_list], low..high//1, stack)
+      when low > to or high < from do
+    # no overlap
+    combine_ranges(combined_list, low..high//1, [from..to//1 | stack])
+  end
+
+  def combine_ranges([from..to//1 | combined_list], low..high//1, stack) do
+    # There is a new combination to be made to eliminate the overlap.
+    # Restart from the beginning to check all combinations with this new range.
+    combine_ranges(stack ++ combined_list, min(from, low)..max(to, high)//1, [])
   end
 
   def loop_all_ranges_and_combine([first_range | overlapping_ranges]) do
