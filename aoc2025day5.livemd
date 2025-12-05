@@ -1,0 +1,100 @@
+# Advent of code 2025 day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/5
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+[ranges_parts, ids_parts] =
+  Kino.Input.read(input)
+  |> String.split("\n\n", trim: true)
+
+unique_ids =
+  String.split(ids_parts, "\n", trim: true) |> Enum.map(&String.to_integer(&1))
+
+overlapping_ranges =
+  String.split(ranges_parts, "\n", trim: true)
+  |> Enum.map(fn range ->
+    [from, to] = String.split(range, "-")
+    {String.to_integer(from), String.to_integer(to)}
+  end)
+
+:ok
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def remove_numbers(ids, from, to) do
+    Enum.reject(ids, fn ingredient_id -> ingredient_id >= from and ingredient_id <= to end)
+  end
+
+  def get_spoiled_ingredients(overlapping_ranges, unique_ids) do
+    Enum.reduce_while(overlapping_ranges, unique_ids, fn {from, to}, ids_minus_fresh ->
+      new_ids_minus_fresh = remove_numbers(ids_minus_fresh, from, to)
+
+      if new_ids_minus_fresh == [] do
+        {:halt, new_ids_minus_fresh}
+      else
+        {:cont, new_ids_minus_fresh}
+      end
+    end)
+  end
+end
+
+spoiled_ids = Part1.get_spoiled_ingredients(overlapping_ranges, unique_ids)
+
+length(unique_ids) - length(spoiled_ids)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def combine_2_ranges({from, to}, {low, high}) do
+    if low > to or high < from, do: nil, else:  {min(from, low), max(to, high)}
+  end
+
+  def combine_ranges([], combined_range, stack) do
+    [combined_range | stack]
+  end
+  
+  def combine_ranges([first_range | combined_list], compare_with_range, stack) do
+    combined_range = combine_2_ranges(first_range, compare_with_range)
+    if is_nil(combined_range) do
+      # no overlap
+      combine_ranges(combined_list, compare_with_range, [first_range | stack])
+    else
+      # first_range is eliminated, it is in the new combined_range.
+      # compare_with_range will not be used anymore because it is also in the combined_range.
+      # restart from the beginning to check all combinations.
+      combine_ranges(stack ++ combined_list, combined_range, [])
+    end
+  end
+
+  def loop_all_ranges_and_combine([first_range | overlapping_ranges]) do
+    Enum.reduce(overlapping_ranges, [first_range], fn new_range, combined_list ->
+      combine_ranges(combined_list, new_range, [])
+    end)
+  end
+end
+
+ranges_without_overlap = Part2.loop_all_ranges_and_combine(overlapping_ranges)
+
+Enum.sum_by(ranges_without_overlap, fn {from, to} -> to - from + 1 end)
+```
