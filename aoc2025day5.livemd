@@ -28,7 +28,7 @@ overlapping_ranges =
   String.split(ranges_parts, "\n", trim: true)
   |> Enum.map(fn range ->
     [from, to] = String.split(range, "-")
-    {String.to_integer(from), String.to_integer(to)}
+    String.to_integer(from)..String.to_integer(to)//1
   end)
 
 :ok
@@ -43,7 +43,7 @@ defmodule Part1 do
   end
 
   def get_spoiled_ingredients(overlapping_ranges, unique_ids) do
-    Enum.reduce_while(overlapping_ranges, unique_ids, fn {from, to}, ids_minus_fresh ->
+    Enum.reduce_while(overlapping_ranges, unique_ids, fn from..to//1, ids_minus_fresh ->
       new_ids_minus_fresh = remove_numbers(ids_minus_fresh, from, to)
 
       if new_ids_minus_fresh == [] do
@@ -66,8 +66,8 @@ length(unique_ids) - length(spoiled_ids)
 
 ```elixir
 defmodule Part2 do
-  def combine_2_ranges({from, to}, {low, high}) do
-    if low > to or high < from, do: nil, else:  {min(from, low), max(to, high)}
+  def combine_2_ranges(from..to//1, low..high//1) do
+    if low > to or high < from, do: nil, else:  min(from, low)..max(to, high)//1
   end
 
   def combine_ranges([], combined_range, stack) do
@@ -96,5 +96,5 @@ end
 
 ranges_without_overlap = Part2.loop_all_ranges_and_combine(overlapping_ranges)
 
-Enum.sum_by(ranges_without_overlap, fn {from, to} -> to - from + 1 end)
+Enum.sum_by(ranges_without_overlap, fn from..to//1 -> to - from + 1 end)
 ```
