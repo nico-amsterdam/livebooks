@@ -1,0 +1,107 @@
+# Advent of code 2025 day 5
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/6
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  Kino.Input.read(input)
+  |> String.split("\n")
+
+splitter = fn line -> String.split(String.trim(line), ~r/\s+/) end
+
+operator_idx = Enum.count(lines) - 1
+item_count = List.first(lines) |> splitter.() |> Enum.count()
+
+IO.inspect operator_idx, label: "last line number"
+IO.inspect item_count, label: "integers per line"
+```
+
+```elixir
+map =
+  for {line, line_nr} <- Enum.with_index(lines),
+      line_items = splitter.(line),
+      {val, index} <- Enum.with_index(line_items) do
+    {{index, line_nr}, if(String.match?(val, ~r/\d+/), do: String.to_integer(val), else: val)}
+  end
+  |> Enum.into(%{})
+
+Enum.sum_by(0..(item_count - 1)//1, fn item_nr ->
+  oper = Map.get(map, {item_nr, operator_idx})
+
+  Enum.reduce(1..(operator_idx - 1)//1, Map.get(map, {item_nr, 0}), fn line_nr, acc ->
+    val = Map.get(map, {item_nr, line_nr})
+
+    if oper == "+" do
+      acc + val
+    else
+      acc * val
+    end
+  end)
+end)
+
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# read without removing whitespace. Convert to charlist's for the next step
+lines_charlist =
+  Enum.map(lines, fn line -> String.to_charlist(line) end)
+
+# transform columns in rows and vice versa. Return the first column as operators, the rest is integer
+list_with_operators_and_numbers =
+  for charlist <- lines_charlist, {char, char_nr} <- Enum.with_index(charlist), reduce: %{} do
+    acc -> Map.update(acc, {char_nr}, [char], fn line_charlist -> [char | line_charlist] end)
+  end
+  # remove useless empty rows. The operands + / * will indicate when a new sum starts.
+  |> Enum.filter(fn {_line_nr, [_oper | rest]} -> List.to_string(rest) |> String.trim() != "" end)
+  # sort on line_nr
+  |> Enum.sort()
+  |> Enum.map(fn {_line_nr, [oper | rest]} ->
+    num =
+      Enum.reverse(rest)
+      |> List.to_string()
+      |> String.trim()
+      |> String.to_integer()
+
+    {List.to_string([oper]), num}
+  end)
+
+# because + and * are commutative operations the integers can be executed in reversed order.
+{total, current_oper, subtotal} =
+  Enum.reduce(list_with_operators_and_numbers ++ [{"+", 0}], {0, "+", 0}, fn {oper, num},
+                                                                             {total, current_oper,
+                                                                              subtotal} ->
+    if oper == "+" do
+      {total + subtotal, oper, num}
+    else
+      if oper == "*" do
+        {total + subtotal, oper, num}
+      else
+        if current_oper == "+" do
+          {total, current_oper, subtotal + num}
+        else
+          {total, current_oper, subtotal * num}
+        end
+      end
+    end
+  end)
+
+total
+```
