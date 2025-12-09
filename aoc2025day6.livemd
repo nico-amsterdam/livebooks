@@ -1,4 +1,4 @@
-# Advent of code 2025 day 5
+# Advent of code 2025 day 6
 
 ```elixir
 Mix.install([
