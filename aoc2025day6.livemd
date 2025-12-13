@@ -66,14 +66,11 @@ lines_charlist =
 
 # transform columns in rows and vice versa. Return the first column as operators, the rest is integer
 list_with_operators_and_numbers =
-  for charlist <- lines_charlist, {char, char_nr} <- Enum.with_index(charlist), reduce: %{} do
-    acc -> Map.update(acc, {char_nr}, [char], fn line_charlist -> [char | line_charlist] end)
-  end
+  Enum.zip_with(lines_charlist, & &1) # transpose
+  |> Enum.map(&Enum.reverse/1)
   # remove useless empty rows. The operands + / * will indicate when a new sum starts.
-  |> Enum.filter(fn {_line_nr, [_oper | rest]} -> List.to_string(rest) |> String.trim() != "" end)
-  # sort on line_nr
-  |> Enum.sort()
-  |> Enum.map(fn {_line_nr, [oper | rest]} ->
+  |> Enum.filter(fn [_oper | rest] -> List.to_string(rest) |> String.trim() != "" end)
+  |> Enum.map(fn [oper | rest] ->
     num =
       Enum.reverse(rest)
       |> List.to_string()
