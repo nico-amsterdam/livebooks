@@ -1,0 +1,175 @@
+# Advent of code 2025 day 7
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/7
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  Kino.Input.read(input)
+  |> String.split("\n")
+  |> Enum.map(&to_charlist/1)
+
+[first_line | other_lines] = lines
+start_pos = first_line |> Enum.find_index(fn x -> x == ?S end)
+beams = [start_pos]
+grid_width = length(first_line)
+
+# It's not defined what happens if two splitters are adjacent,
+# but they do not occur in the input.
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def splitter_positions(line) do
+    Enum.with_index(line, fn element, index -> {index, element} end)
+    |> Enum.filter(fn {_pos, char} -> char == ?^ end)
+    |> Enum.into([], fn {pos, _char} -> pos end)
+  end
+
+  def new_beams(line, current_split_count, current_beams, grid_width, deduplicate) do
+    splitters = splitter_positions(line) |> MapSet.new()
+
+    {beams_split_count, reverse_dup_beams} =
+      Enum.reduce(current_beams, {0, []}, fn pos, {split_count, acc_beams} ->
+        if MapSet.member?(splitters, pos) do
+          # at the splitter position itself the beam disappears
+          # left or right a splitter a new beam appears
+
+          # check left and right border to be sure
+          newest_beams =
+            if pos > 0 do
+              if pos + 1 < grid_width do
+                [pos + 1, pos - 1 | acc_beams]
+              else
+                [pos - 1 | acc_beams]
+              end
+            else
+              [pos + 1 | acc_beams]
+            end
+
+          {split_count + 1, newest_beams}
+        else
+          # no obstructions, beam continues
+          {split_count, [pos | acc_beams]}
+        end
+      end)
+
+    new_beams =
+      if deduplicate do
+        Enum.dedup(reverse_dup_beams)
+      else
+        reverse_dup_beams
+      end
+      |> Enum.reverse()
+
+    {current_split_count + beams_split_count, new_beams}
+  end
+
+  def enter_manifold(lines, beams, grid_width, deduplicate) do
+    Enum.reduce(lines, {0, beams}, fn line, {split_count, current_beams} ->
+      new_beams(line, split_count, current_beams, grid_width, deduplicate)
+    end)
+  end
+end
+
+{total_split_count, _exit_beams} = Part1.enter_manifold(other_lines, beams, grid_width, true)
+
+IO.inspect(total_split_count, label: "Answer part 1, number of splits   ")
+
+# This takes forever:
+# {_total_split_count, exit_beams} = Part1.enter_manifold(other_lines, beams, grid_width, false)
+# IO.inspect length(exit_beams)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def splitter_positions(line) do
+    Enum.with_index(line, fn element, index -> {index, element} end)
+    |> Enum.filter(fn {_pos, char} -> char == ?^ end)
+    |> Enum.into([], fn {pos, _char} -> pos end)
+  end
+
+  def dedup_with_sum_counts(list_with_pos_and_count) do
+    [{_, _} | deduped] =
+      Enum.reduce(list_with_pos_and_count, [{-1, 0}], fn {pos, count},
+                                                         [{prev_pos, prev_count} | rest_acc] ->
+        if pos == prev_pos do
+          [{pos, count + prev_count} | rest_acc]
+        else
+          [{pos, count}, {prev_pos, prev_count} | rest_acc]
+        end
+      end)
+      |> Enum.reverse()
+
+    deduped
+  end
+
+  def new_beams(line, current_split_count, current_beams, grid_width) do
+    splitters = splitter_positions(line) |> MapSet.new()
+
+    {beams_split_count, reverse_dup_beams} =
+      Enum.reduce(current_beams, {0, []}, fn {pos, count}, {split_count, acc_beams} ->
+        if MapSet.member?(splitters, pos) do
+          # at the splitter position itself the beam disappears
+          # left or right a splitter a new beam appears
+
+          # check left and right border to be sure
+          newest_beams =
+            if pos > 0 do
+              if pos + 1 < grid_width do
+                [{pos + 1, count}, {pos - 1, count} | acc_beams]
+              else
+                [{pos - 1, count} | acc_beams]
+              end
+            else
+              [{pos + 1, count} | acc_beams]
+            end
+
+          {split_count + 1, newest_beams}
+        else
+          # no obstructions, beam continues
+          {split_count, [{pos, count} | acc_beams]}
+        end
+      end)
+
+    new_beams =
+      dedup_with_sum_counts(reverse_dup_beams)
+      |> Enum.reverse()
+
+    {current_split_count + beams_split_count, new_beams}
+  end
+
+  def enter_manifold(lines, beams, grid_width) do
+    Enum.reduce(lines, {0, beams}, fn line, {split_count, current_beams} ->
+      new_beams(line, split_count, current_beams, grid_width)
+    end)
+  end
+end
+
+beams_with_counts = Enum.into(beams, %{}, fn pos -> {pos, 1} end)
+
+{total_split_count, exit_beams} =
+  Part2.enter_manifold(other_lines, beams_with_counts, grid_width)
+
+number_of_timelines = Enum.sum_by(exit_beams, fn {_pos, count} -> count end)
+
+IO.inspect(total_split_count, label: "Answer part 1, number of splits   ")
+IO.inspect(number_of_timelines, label: "Answer part 2, number of timelines")
+```
