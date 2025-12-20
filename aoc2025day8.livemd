@@ -1,0 +1,135 @@
+# Advent of code 2025 day 8
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/8
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+points =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn xyz ->
+    [x, y, z] =
+      String.split(xyz, ",")
+      |> Enum.map(&String.to_integer/1)
+
+    {x, y, z}
+  end)
+
+length(points)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  defp calc_distances(points, nr_of_shortest_connects) do
+    # Make a distance table, requires (N^2 - N) / 2 calculations
+    # Double loop, where inner loop p-inner <> p-outer
+    # To prevent too much double calculations, p-inner < p-outer
+    # output: [{distance1, p1, p2}, ...]
+    for p1 = {x1, y1, z1} <- points,
+        p2 = {x2, y2, z2} <- points,
+        x1 != x2 || y1 != y2 || z1 != z2,
+        x1 < x2 || (x1 == x2 && y1 < y2) || (x1 == x2 && y1 == y2 && z1 < z2) do
+      dx = x2 - x1
+      dy = y2 - y1
+      dz = z2 - z1
+
+      distance = dx * dx + dy * dy + dz * dz
+      {distance, p1, p2}
+    end
+    |> List.keysort(0)
+    |> Enum.take(nr_of_shortest_connects)
+  end
+
+  defp init_circuits(distances) do
+    # fill single boxes
+    Enum.reduce(distances, {0, %{}, %{}}, fn {_distance, p1, p2},
+                                             {circuit_next_val, circuits,
+                                              boxes_in_circuits} ->
+      p1_circuit_index = Map.get(boxes_in_circuits, p1)
+      p2_circuit_index = Map.get(boxes_in_circuits, p2)
+
+      cc_new =
+        circuits
+        |> Map.delete(p1_circuit_index)
+        |> Map.delete(p2_circuit_index)
+        |> Map.put(circuit_next_val, [p1])
+        |> Map.put(circuit_next_val + 1, [p2])
+
+      box_new =
+        boxes_in_circuits
+        |> Map.put(p1, circuit_next_val)
+        |> Map.put(p2, circuit_next_val + 1)
+
+      {circuit_next_val + 2, cc_new, box_new}
+    end)
+  end
+
+  defp calc_final_circuits(distances) do
+    {_, init_circuits, init_boxes_in_circuits} = init_circuits(distances)
+
+    {final_circuits, _} =
+      Enum.reduce(distances, {init_circuits, init_boxes_in_circuits}, fn {_distance, p1,
+                                                                                    p2},
+                                                                                   {circuits,
+                                                                                    boxes_in_circuits} ->
+        p1_circuit_index = Map.get(boxes_in_circuits, p1)
+        p2_circuit_index = Map.get(boxes_in_circuits, p2)
+
+        if p1_circuit_index == p2_circuit_index do
+          {circuits, boxes_in_circuits}
+        else
+          boxes1 = Map.get(circuits, p1_circuit_index)
+          boxes2 = Map.get(circuits, p2_circuit_index)
+
+          cc_new =
+            Map.put(circuits, p1_circuit_index, boxes1 ++ boxes2)
+            |> Map.delete(p2_circuit_index)
+
+          box_new =
+            Enum.reduce(boxes2, boxes_in_circuits, fn box, change_boxes_in_circuits ->
+              Map.put(change_boxes_in_circuits, box, p1_circuit_index)
+            end)
+
+          {cc_new, box_new}
+        end
+      end)
+
+    final_circuits
+  end
+
+  def run(points, nr_of_shortest_connects) do
+    distances = calc_distances(points, nr_of_shortest_connects)
+
+    calc_final_circuits(distances)
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.sort_by(&length/1, :desc)
+    |> Enum.take(3)
+    |> Enum.product_by(&length/1)
+  end
+end
+
+Part1.run(points, 1000)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# TODO
+```
