@@ -1,0 +1,60 @@
+# Advent of code 2025 day 9
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.18"}
+])
+```
+
+## Part 1
+
+https://adventofcode.com/2025/day/9
+
+```elixir
+input = Kino.Input.textarea("Please give me input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+points =
+  Kino.Input.read(input)
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn xy ->
+    [x, y] =
+      String.split(xy, ",")
+      |> Enum.map(&String.to_integer/1)
+
+    {x, y}
+  end)
+
+length(points)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def calc_max_area(points) do
+    # Make a distance table, requires (N^2 - N) / 2 calculations
+    # Double loop, where inner loop p-inner <> p-outer
+    # To prevent too much double calculations, p-inner < p-outer
+    # output: [{distance1, p1, p2}, ...]
+    for p1 = {x1, y1} <- points,
+        p2 = {x2, y2} <- points,
+        p1 < p2 do
+      dx = abs(x2 - x1) + 1
+      dy = abs(y2 - y1) + 1
+
+      area = dx * dy
+      {area, p1, p2}
+    end
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.max()
+  end
+
+end
+
+IO.inspect Part1.calc_max_area(points), label: "part1"
+
+```
